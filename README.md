@@ -9,7 +9,8 @@ server {
     # Must contain index.html and bundle.js
     root /where/the/built/htdocs/can/be/found;
     location /maison.Maison/ {
-            proxy_pass http://maison/maison.Maison/;
+        proxy_pass http://maison/maison.Maison/;
+        proxy_http_version 1.1;
     }
 }
 

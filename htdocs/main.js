@@ -9,13 +9,29 @@ class Maison {
 
     run = () => {
         let req = new HelloRequest();
-        req.setMessage("test");
-        this.api.hello(req, {}, (err, response) => {
-            if (err === null) {
-                this.output_el.textContent = response.getMessage();
-            } else {
-                this.output_el.textContent = err;
-            }
+        req.setMessage("zigbee/boiler");
+        var output_el = this.output_el;
+        var stream = this.api.mqttTest(req, {});
+        stream.on('data', function(response) {
+            var d = document.createElement('div');
+            d.textContent = response.getMessage();
+            output_el.appendChild(d);
+        });
+        stream.on('status', function(status) {
+            var d = document.createElement('div');
+            var f = document.createElement('font');
+            f.color = 'red';
+            f.textContent = status.code;
+            d.appendChild(f);
+            output_el.appendChild(d);
+        });
+        stream.on('end', function() {
+            var d = document.createElement('div');
+            var f = document.createElement('font');
+            f.color = 'green';
+            f.textContent = 'END';
+            d.appendChild(f);
+            output_el.appendChild(d);
         });
     }
 }

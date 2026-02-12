@@ -11,5 +11,5 @@ message HelloResponse {
 }
 
 service Maison {
-  rpc Hello(HelloRequest) returns (HelloResponse) {}
+  rpc MqttTest(HelloRequest) returns (stream HelloResponse) {}
 }
