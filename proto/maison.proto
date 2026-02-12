@@ -1,0 +1,15 @@
+syntax = "proto2";
+
+package maison;
+
+message HelloRequest {
+  optional string message = 1;
+}
+
+message HelloResponse {
+  optional string message = 1;
+}
+
+service Maison {
+  rpc Hello(HelloRequest) returns (HelloResponse) {}
+}
