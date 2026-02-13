@@ -1,4 +1,3 @@
-use bytes::Bytes;
 use comprehensive::v1::{AssemblyRuntime, Resource, resource};
 use futures::Stream;
 use pin_project_lite::pin_project;
@@ -23,7 +22,7 @@ struct SubscriptionCancel {
 
 #[derive(Debug)]
 pub struct Subscription {
-    tx: tokio::sync::broadcast::Sender<Bytes>,
+    tx: tokio::sync::broadcast::Sender<crate::parse::Message>,
     cancel: Option<SubscriptionCancel>,
 }
 
@@ -38,7 +37,7 @@ impl Drop for Subscription {
 pin_project! {
     pub struct SubscriptionStream {
         _subscription: Arc<Subscription>,
-        #[pin] rx: tokio_stream::wrappers::BroadcastStream<Bytes>,
+        #[pin] rx: tokio_stream::wrappers::BroadcastStream<crate::parse::Message>,
     }
 }
 
@@ -53,7 +52,7 @@ impl Subscription {
 }
 
 impl Stream for SubscriptionStream {
-    type Item = Bytes;
+    type Item = crate::parse::Message;
 
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         match self.project().rx.poll_next(cx) {
@@ -80,7 +79,7 @@ impl Mqtt {
     async fn got_message(&self, msg: rumqttc::Publish) {
         let topics = self.topics.lock().unwrap();
         if let Some(s) = topics.get(&msg.topic) {
-            let _ = s.tx.send(msg.payload);
+            let _ = s.tx.send(msg.into());
         }
     }
 
