@@ -1,8 +1,10 @@
+use backoff::backoff::Backoff;
+use comprehensive::health::{HealthReporter, HealthSignaller};
 use comprehensive::v1::{AssemblyRuntime, Resource, resource};
 use futures::Stream;
 use pin_project_lite::pin_project;
 use rumqttc::Event::Incoming;
-use rumqttc::Packet::Publish;
+use rumqttc::Packet::{ConnAck, Publish};
 use rumqttc::{AsyncClient, EventLoop, MqttOptions, QoS};
 use std::net::SocketAddr;
 use std::pin::{Pin, pin};
@@ -103,17 +105,49 @@ impl Mqtt {
         }
     }
 
-    async fn run(&self, mut eventloop: EventLoop) -> Result<(), Box<dyn std::error::Error>> {
+    async fn run(
+        &self,
+        mut eventloop: EventLoop,
+        health_signaller: HealthSignaller,
+    ) -> Result<(), Box<dyn std::error::Error>> {
+        let mut backoff = backoff::ExponentialBackoffBuilder::new()
+            .with_max_elapsed_time(None) // Never completely give up.
+            .build();
+        let mut healthy = false;
         loop {
-            match eventloop.poll().await {
-                Ok(notification) => {
-                    if let Incoming(Publish(msg)) = notification {
-                        self.got_message(msg).await;
+            let now_healthy = match eventloop.poll().await {
+                Ok(Incoming(Publish(msg))) => {
+                    self.got_message(msg).await;
+                    true
+                }
+                Ok(Incoming(ConnAck(ack))) => {
+                    if ack.code == rumqttc::ConnectReturnCode::Success {
+                        true
+                    } else {
+                        error!("MQTT ConnAck code {:?}", ack.code);
+                        false
                     }
                 }
+                Ok(Incoming(_)) => true,
+                Ok(rumqttc::Event::Outgoing(_)) => true,
                 Err(error) => {
                     error!("MQTT client error: {:?}", error);
-                    sleep(Duration::from_secs(5)).await;
+                    false
+                }
+            };
+            if now_healthy {
+                if !healthy {
+                    healthy = true;
+                    health_signaller.set_healthy(true);
+                    backoff.reset();
+                }
+            } else {
+                if healthy {
+                    healthy = false;
+                    health_signaller.set_healthy(false);
+                }
+                if let Some(duration) = backoff.next_backoff() {
+                    sleep(duration).await;
                 }
             }
         }
@@ -159,10 +193,11 @@ pub struct MqttArgs {
 #[resource]
 impl Resource for Mqtt {
     fn new(
-        _: (),
+        (health_reporter,): (Arc<HealthReporter>,),
         a: MqttArgs,
         runtime: &mut AssemblyRuntime<'_>,
-    ) -> Result<Arc<Self>, std::convert::Infallible> {
+    ) -> Result<Arc<Self>, comprehensive::ComprehensiveError> {
+        let health_signaller = health_reporter.register(Self::NAME)?;
         let ephemeral = uuid::Uuid::new_v4();
         let mut mqttoptions = MqttOptions::new(
             format!("maison-{ephemeral}"),
@@ -180,7 +215,7 @@ impl Resource for Mqtt {
         let shared2 = Arc::clone(&shared);
         let shared3 = Arc::clone(&shared);
         runtime.set_task(async move {
-            let l = pin!(shared2.run(eventloop));
+            let l = pin!(shared2.run(eventloop, health_signaller));
             let u = pin!(shared3.change_subscriptions(sub_unsub_rx));
             futures::future::select(l, u).await.factor_first().0
         });
