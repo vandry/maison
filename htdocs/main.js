@@ -1,37 +1,33 @@
-const {HelloRequest, HelloResponse} = require('codegen/maison_pb.js');
+const {Climate} = require('codegen/maison_pb.js');
 const {MaisonClient} = require('codegen/maison_grpc_web_pb.js');
 
 class Maison {
     constructor (api) {
         this.api = api;
-        this.output_el = document.getElementById("output");
     }
 
     run = () => {
-        let req = new HelloRequest();
-        req.setMessage("zigbee/boiler");
-        var output_el = this.output_el;
-        var stream = this.api.mqttTest(req, {});
+        this.run_livetemp();
+    }
+
+    run_livetemp = () => {
+        var top = this;
+        var req = new proto.google.protobuf.Empty();
+        var stream = this.api.monitorLiveTemperatures(req, {});
         stream.on('data', function(response) {
-            var d = document.createElement('div');
-            d.textContent = response.getMessage();
-            output_el.appendChild(d);
+            var els = document.getElementsByClassName("climate-" + response.getUnit());
+            for (var i = 0; i < els.length; i++) {
+                var livetemp_els = els[i].getElementsByClassName("livetemp");
+                for (var j = 0; j < livetemp_els.length; j++) {
+                    livetemp_els[j].textContent = response.getTemperature().toFixed(1) + " \xb0C";
+                }
+            }
         });
         stream.on('status', function(status) {
-            var d = document.createElement('div');
-            var f = document.createElement('font');
-            f.color = 'red';
-            f.textContent = status.code;
-            d.appendChild(f);
-            output_el.appendChild(d);
+            setTimeout(() => { top.run_livetemp(); }, 1000);
         });
         stream.on('end', function() {
-            var d = document.createElement('div');
-            var f = document.createElement('font');
-            f.color = 'green';
-            f.textContent = 'END';
-            d.appendChild(f);
-            output_el.appendChild(d);
+            top.run_livetemp();
         });
     }
 }

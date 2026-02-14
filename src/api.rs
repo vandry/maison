@@ -1,5 +1,6 @@
 use comprehensive::v1::{AssemblyRuntime, Resource, resource};
 use futures::{Stream, StreamExt};
+use merge_streams::MergeStreams;
 use std::pin::Pin;
 use std::sync::Arc;
 use tonic::Status;
@@ -25,20 +26,29 @@ impl Resource for Api {
 
 #[tonic::async_trait]
 impl crate::pb::maison_server::Maison for Api {
-    type MqttTestStream =
-        Pin<Box<dyn Stream<Item = Result<crate::pb::HelloResponse, Status>> + Send>>;
+    type MonitorLiveTemperaturesStream =
+        Pin<Box<dyn Stream<Item = Result<crate::pb::Climate, Status>> + Send>>;
 
-    async fn mqtt_test(
+    async fn monitor_live_temperatures(
         &self,
-        req: tonic::Request<crate::pb::HelloRequest>,
-    ) -> Result<tonic::Response<Self::MqttTestStream>, Status> {
-        let sub = self
-            .mqtt
-            .subscribe(req.into_inner().message.unwrap_or_default())
-            .await;
-        Ok(tonic::Response::new(Box::pin(sub.into_stream().map(|x| {
-            Ok(crate::pb::HelloResponse {
-                message: Some(format!("{x:?}")),
+        _: tonic::Request<()>,
+    ) -> Result<tonic::Response<Self::MonitorLiveTemperaturesStream>, Status> {
+        let stream = futures::future::join_all([
+            self.mqtt.subscribe(String::from("zigbee/climate/bottom")),
+            self.mqtt.subscribe(String::from("zigbee/climate/middle")),
+            self.mqtt.subscribe(String::from("zigbee/climate/top")),
+            self.mqtt.subscribe(String::from("zigbee/climate/main")),
+            self.mqtt.subscribe(String::from("zigbee/climate/kitchen")),
+        ])
+        .await
+        .into_iter()
+        .map(|s| s.into_stream())
+        .collect::<Vec<_>>()
+        .merge();
+        Ok(tonic::Response::new(Box::pin(stream.filter_map(|x| {
+            std::future::ready(match x {
+                crate::parse::Message::Climate(x) => Some(Ok(x)),
+                _ => None,
             })
         }))))
     }

@@ -1,0 +1,11 @@
+table.temperatures {
+    border: 0.2em;
+}
+
+table.temperatures tr {
+    outline: thin solid;
+}
+
+.livetemp {
+    text-align: right;
+}
