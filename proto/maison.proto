@@ -22,4 +22,7 @@ message SimpleSwitch {
 
 service Maison {
   rpc MonitorLiveTemperatures(google.protobuf.Empty) returns (stream Climate) {}
+  rpc MonitorKitchenCeiling(google.protobuf.Empty) returns (stream SimpleSwitch) {}
+  rpc MonitorKitchenUnderCupboards(google.protobuf.Empty) returns (stream SimpleSwitch) {}
+  rpc MonitorKitchenUnderStairs(google.protobuf.Empty) returns (stream SimpleSwitch) {}
 }

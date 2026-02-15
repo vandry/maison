@@ -5,10 +5,12 @@ class Maison {
     constructor (api) {
         this.api = api;
         this.staleness_expiries = {};
+        this.kitchen = [null, null, null];
     }
 
     run = () => {
         this.run_livetemp();
+        this.run_kitchen();
     }
 
     display_value = (staleness_key, value, lifetime, setter) => {
@@ -24,11 +26,23 @@ class Maison {
         }
     }
 
+    subscribe = (make_stream, callback) => {
+        var top = this;
+        var stream = make_stream();
+        stream.on('data', callback);
+        stream.on('status', function(status) {
+            setTimeout(() => { top.subscribe(make_stream, callback); }, 1000);
+        });
+        stream.on('end', function() {
+            top.subscribe(make_stream, callback);
+        });
+    }
+
     run_livetemp = () => {
         var top = this;
-        var req = new proto.google.protobuf.Empty();
-        var stream = this.api.monitorLiveTemperatures(req, {});
-        stream.on('data', function(response) {
+        this.subscribe(() => {
+            return this.api.monitorLiveTemperatures(new proto.google.protobuf.Empty(), {});
+        }, (response) => {
             var key = 'climate-' + response.getUnit();
             top.display_value(
                 key,
@@ -39,17 +53,54 @@ class Maison {
                     for (var i = 0; i < els.length; i++) {
                         var livetemp_els = els[i].getElementsByClassName("livetemp");
                         for (var j = 0; j < livetemp_els.length; j++) {
-                            livetemp_els[j].textContent = v == null ? '' : (v.toFixed(1) + " \xb0C");
+                            livetemp_els[j].textContent = v === null ? '' : (v.toFixed(1) + " \xb0C");
                         }
                     }
-                }
+                },
             );
         });
-        stream.on('status', function(status) {
-            setTimeout(() => { top.run_livetemp(); }, 1000);
+    }
+
+    set_kitchen = (response, light_index) => {
+        var top = this;
+        this.display_value(
+                'kitchen_' + light_index,
+                response.hasState() ? response.getState() : null,
+                66000000,
+                (v) => {
+                    top.kitchen[light_index] = v;
+                    var known = top.kitchen[0] !== null && top.kitchen[1] !== null && top.kitchen[2] !== null;
+                    var on = known && top.kitchen[0] && top.kitchen[1] && top.kitchen[2];
+                    var off = known && (!top.kitchen[0]) && (!top.kitchen[1]) && (!top.kitchen[2]);
+                    var overall = known ? (on ? "light_on" : (off ? "light_off" : "light_some")) : "light_unknown";
+                    console.log("light " + light_index + " " + v + " overall " + overall);
+                    var els = document.getElementsByClassName("kitchen_lights");
+                    for (var i = 0; i < els.length; i++) {
+                        var spans = els[i].getElementsByTagName("span");
+                        for (var j = 0; j < spans.length; j++) {
+                            spans[j].className = overall;
+                        }
+                    }
+                },
+        );
+    }
+
+    run_kitchen = () => {
+        var top = this;
+        this.subscribe(() => {
+            return this.api.monitorKitchenCeiling(new proto.google.protobuf.Empty(), {});
+        }, (response) => {
+            top.set_kitchen(response, 0);
         });
-        stream.on('end', function() {
-            top.run_livetemp();
+        this.subscribe(() => {
+            return this.api.monitorKitchenUnderCupboards(new proto.google.protobuf.Empty(), {});
+        }, (response) => {
+            top.set_kitchen(response, 1);
+        });
+        this.subscribe(() => {
+            return this.api.monitorKitchenUnderStairs(new proto.google.protobuf.Empty(), {});
+        }, (response) => {
+            top.set_kitchen(response, 2);
         });
     }
 }

@@ -9,3 +9,35 @@ table.temperatures tr {
 .livetemp {
     text-align: right;
 }
+
+.l_on {
+    display: none;
+}
+
+.l_off {
+    display: none;
+}
+
+.l_some {
+    display: none;
+}
+
+.l_unknown {
+    display: none;
+}
+
+.light_unknown .l_unknown {
+    display: inline;
+}
+
+.light_on .l_on {
+    display: inline;
+}
+
+.light_off .l_off {
+    display: inline;
+}
+
+.light_some .l_some {
+    display: inline;
+}

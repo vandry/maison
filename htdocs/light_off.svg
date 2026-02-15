@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" version="1.1" viewBox="0 0 550 550" xml:space="preserve">
+    <svg id="bulb" x="125" y="130">
+        <path id="inner" fill="#E2ECF1" d="M 137.7 13.7 C 67.2 13.7 10 70.9 10 141.4 c 0 58.3 72.8 118.2 79.9 162.3 h 47.8 h 47.8 c 7.1 -44 79.9 -103.9 79.9 -162.3 C 265.3 70.9 208.2 13.7 137.7 13.7 z"/>
+        <g id="outline">
+            <path fill="#f1f2f2" stroke="#38434a" stroke-miterlimit="10" stroke-width="19.1022" d="M 168.5 375.5 h -61.7 c -8.9 0 -16 -7.2 -16 -16 v -55.8 h 93.8 v 55.8 C 184.6 368.3 177.4 375.5 168.5 375.5 z"/>
+            <path fill="#f1f2f2" stroke="#38434a" stroke-miterlimit="10" stroke-width="19.1022" d="M 151.2 401.5 h -27.1 c -3.9 0 -7 -3.2 -7 -7 v -19 h 41.1 v 19 C 158.2 398.4 155.1 401.5 151.2 401.5 z"/>
+            <line x1="184.6" x2="90.8" y1="339.6" y2="339.6" fill="none" stroke="#38434A" stroke-miterlimit="10" stroke-width="19.1022"/>
+            <path fill="none" stroke="#38434a" stroke-miterlimit="10" stroke-width="19.1022" d="M 137.7 13.7 C 67.2 13.7 10 70.9 10 141.4 c 0 58.3 72.8 118.2 79.9 162.3 h 47.8 h 47.8 c 7.1 -44 79.9 -103.9 79.9 -162.3 C 265.3 70.9 208.2 13.7 137.7 13.7 z"/>
+        </g>
+        <g id="highlight">
+            <path fill="#ffdb55" stroke="#ffffff" stroke-linecap="round" stroke-miterlimit="10" stroke-width="21" d="M 207.1 89.5 c -12.3 -16.1 -28.4 -29.1 -46.9 -37.8"/>
+            <path fill="#ffdb55" stroke="#ffffff" stroke-linecap="round" stroke-miterlimit="10" stroke-width="21" d="M 225 121.4 c -0.8 -2.2 -1.8 -4.4 -2.7 -6.5"/>
+        </g>
+    </svg>
+</svg>

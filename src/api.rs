@@ -24,6 +24,29 @@ impl Resource for Api {
     }
 }
 
+type MonitorSwitchStream =
+    Pin<Box<dyn Stream<Item = Result<crate::pb::SimpleSwitch, Status>> + Send>>;
+
+impl Api {
+    async fn monitor_switch(
+        &self,
+        topic: &str,
+    ) -> Result<tonic::Response<MonitorSwitchStream>, Status> {
+        let stream = self
+            .mqtt
+            .subscribe(String::from(topic.to_string()))
+            .await
+            .into_stream()
+            .filter_map(|x| {
+                std::future::ready(match x {
+                    crate::parse::Message::SimpleSwitch(x) => Some(Ok(x)),
+                    _ => None,
+                })
+            });
+        Ok(tonic::Response::new(Box::pin(stream)))
+    }
+}
+
 #[tonic::async_trait]
 impl crate::pb::maison_server::Maison for Api {
     type MonitorLiveTemperaturesStream =
@@ -51,5 +74,32 @@ impl crate::pb::maison_server::Maison for Api {
                 _ => None,
             })
         }))))
+    }
+
+    type MonitorKitchenCeilingStream = MonitorSwitchStream;
+
+    async fn monitor_kitchen_ceiling(
+        &self,
+        _: tonic::Request<()>,
+    ) -> Result<tonic::Response<MonitorSwitchStream>, Status> {
+        self.monitor_switch("zigbee/kitchen_ceiling").await
+    }
+
+    type MonitorKitchenUnderCupboardsStream = MonitorSwitchStream;
+
+    async fn monitor_kitchen_under_cupboards(
+        &self,
+        _: tonic::Request<()>,
+    ) -> Result<tonic::Response<MonitorSwitchStream>, Status> {
+        self.monitor_switch("zigbee/kitchen_under_cupboards").await
+    }
+
+    type MonitorKitchenUnderStairsStream = MonitorSwitchStream;
+
+    async fn monitor_kitchen_under_stairs(
+        &self,
+        _: tonic::Request<()>,
+    ) -> Result<tonic::Response<MonitorSwitchStream>, Status> {
+        self.monitor_switch("zigbee/kitchen_under_stairs").await
     }
 }
