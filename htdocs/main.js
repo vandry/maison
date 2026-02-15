@@ -27,14 +27,36 @@ class Maison {
     }
 
     subscribe = (make_stream, callback) => {
+        var unhealthy = [null];
+        this.resubscribe(make_stream, callback, unhealthy);
+    }
+
+    resubscribe = (make_stream, callback, unhealthy) => {
         var top = this;
+        var restart = [null];
         var stream = make_stream();
-        stream.on('data', callback);
+        stream.on('data', (response) => {
+            if (unhealthy[0] !== null) {
+                clearTimeout(unhealthy[0]);
+                unhealthy[0] = null;
+            }
+            callback(response);
+        });
         stream.on('status', function(status) {
-            setTimeout(() => { top.subscribe(make_stream, callback); }, 1000);
+            if (unhealthy[0] === null) {
+                unhealthy[0] = setTimeout(() => { callback(null); }, 5000);
+            }
+            if (restart[0] === null) {
+                restart[0] = setTimeout(() => { top.resubscribe(make_stream, callback, unhealthy); }, 1000);
+            }
         });
         stream.on('end', function() {
-            top.subscribe(make_stream, callback);
+            if (unhealthy[0] === null) {
+                unhealthy[0] = setTimeout(() => { callback(null); }, 5000);
+            }
+            if (restart[0] === null) {
+                restart[0] = setTimeout(() => { top.subscribe(make_stream, callback, unhealthy); }, 0);
+            }
         });
     }
 
@@ -43,10 +65,10 @@ class Maison {
         this.subscribe(() => {
             return this.api.monitorLiveTemperatures(new proto.google.protobuf.Empty(), {});
         }, (response) => {
-            var key = 'climate-' + response.getUnit();
+            var key = (response === null) ? 'temperatures' : ('climate-' + response.getUnit());
             top.display_value(
                 key,
-                response.hasTemperature() ? response.getTemperature() : null,
+                (response === null) ? null : (response.hasTemperature() ? response.getTemperature() : null),
                 4500000,
                 (v) => {
                     var els = document.getElementsByClassName(key);
@@ -65,7 +87,7 @@ class Maison {
         var top = this;
         this.display_value(
                 'kitchen_' + light_index,
-                response.hasState() ? response.getState() : null,
+                (response === null) ? null : (response.hasState() ? response.getState() : null),
                 66000000,
                 (v) => {
                     top.kitchen[light_index] = v;
@@ -73,7 +95,6 @@ class Maison {
                     var on = known && top.kitchen[0] && top.kitchen[1] && top.kitchen[2];
                     var off = known && (!top.kitchen[0]) && (!top.kitchen[1]) && (!top.kitchen[2]);
                     var overall = known ? (on ? "light_on" : (off ? "light_off" : "light_some")) : "light_unknown";
-                    console.log("light " + light_index + " " + v + " overall " + overall);
                     var els = document.getElementsByClassName("kitchen_lights");
                     for (var i = 0; i < els.length; i++) {
                         var spans = els[i].getElementsByTagName("span");
