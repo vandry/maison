@@ -1,0 +1,9 @@
+syntax = "proto2";
+
+package maison;
+
+import "google/protobuf/timestamp.proto";
+
+message PersistentState {
+  optional google.protobuf.Timestamp garden_light_until = 1;
+}

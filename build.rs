@@ -18,6 +18,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         return Err("npm install failed".into());
     }
 
+    protobuf_codegen::CodeGen::new()
+        .protoc_path("protoc-34.0-rc-2")
+        .inputs(["persistent.proto"])
+        .include("proto")
+        .dependency(protobuf_well_known_types::get_dependency(
+            "protobuf_well_known_types",
+        ))
+        .generate_and_compile()
+        .unwrap();
+
     tonic_prost_build::configure()
         .file_descriptor_set_path(out_dir.join("fdset.bin"))
         .protoc_arg(format!(
