@@ -25,4 +25,5 @@ service Maison {
   rpc MonitorKitchenCeiling(google.protobuf.Empty) returns (stream SimpleSwitch) {}
   rpc MonitorKitchenUnderCupboards(google.protobuf.Empty) returns (stream SimpleSwitch) {}
   rpc MonitorKitchenUnderStairs(google.protobuf.Empty) returns (stream SimpleSwitch) {}
+  rpc MonitorBoiler(google.protobuf.Empty) returns (stream Boiler) {}
 }

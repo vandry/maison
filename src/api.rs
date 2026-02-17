@@ -102,4 +102,25 @@ impl crate::pb::maison_server::Maison for Api {
     ) -> Result<tonic::Response<MonitorSwitchStream>, Status> {
         self.monitor_switch("zigbee/kitchen_under_stairs").await
     }
+
+    type MonitorBoilerStream =
+        Pin<Box<dyn Stream<Item = Result<crate::pb::Boiler, Status>> + Send>>;
+
+    async fn monitor_boiler(
+        &self,
+        _: tonic::Request<()>,
+    ) -> Result<tonic::Response<Self::MonitorBoilerStream>, Status> {
+        let stream = self
+            .mqtt
+            .subscribe(String::from("zigbee/boiler"))
+            .await
+            .into_stream()
+            .filter_map(|x| {
+                std::future::ready(match x {
+                    crate::parse::Message::Boiler(x) => Some(Ok(x)),
+                    _ => None,
+                })
+            });
+        Ok(tonic::Response::new(Box::pin(stream)))
+    }
 }

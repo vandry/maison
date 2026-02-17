@@ -41,3 +41,13 @@ table.temperatures tr {
 .light_some .l_some {
     display: inline;
 }
+
+.heating img {
+    width: 10%;
+    height: 10%;
+}
+
+.hot_water img {
+    width: 10%;
+    height: 10%;
+}

@@ -11,6 +11,7 @@ class Maison {
     run = () => {
         this.run_livetemp();
         this.run_kitchen();
+        this.run_boiler();
     }
 
     display_value = (staleness_key, value, lifetime, setter) => {
@@ -122,6 +123,42 @@ class Maison {
             return this.api.monitorKitchenUnderStairs(new proto.google.protobuf.Empty(), {});
         }, (response) => {
             top.set_kitchen(response, 2);
+        });
+    }
+
+    run_boiler = () => {
+        var top = this;
+        this.subscribe(() => {
+            return this.api.monitorBoiler(new proto.google.protobuf.Empty(), {});
+        }, (response) => {
+            this.display_value(
+                'live_heating',
+                (response === null) ? null : (response.hasHeating() ? response.getHeating() : null),
+                66000000,
+                (v) => {
+                    var els = document.getElementsByClassName("heating");
+                    for (var i = 0; i < els.length; i++) {
+                        var spans = els[i].getElementsByTagName("span");
+                        for (var j = 0; j < spans.length; j++) {
+                            spans[j].className = (v === null) ? 'light_unknown' : (v ? 'light_on' : 'light_off');
+                        }
+                    }
+                },
+            );
+            this.display_value(
+                'live_hot_water',
+                (response === null) ? null : (response.hasHotWater() ? response.getHotWater() : null),
+                66000000,
+                (v) => {
+                    var els = document.getElementsByClassName("hot_water");
+                    for (var i = 0; i < els.length; i++) {
+                        var spans = els[i].getElementsByTagName("span");
+                        for (var j = 0; j < spans.length; j++) {
+                            spans[j].className = (v === null) ? 'light_unknown' : (v ? 'light_on' : 'light_off');
+                        }
+                    }
+                },
+            );
         });
     }
 }
