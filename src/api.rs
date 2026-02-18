@@ -1,11 +1,12 @@
 use comprehensive::v1::{AssemblyRuntime, Resource, resource};
-use futures::{Stream, StreamExt};
+use futures::{FutureExt, Stream, StreamExt};
 use merge_streams::MergeStreams;
 use std::pin::Pin;
 use std::sync::Arc;
 use tonic::Status;
 
 use crate::mqtt::Mqtt;
+use crate::pb::MonitorResponse;
 
 pub struct Api {
     mqtt: Arc<Mqtt>,
@@ -24,103 +25,113 @@ impl Resource for Api {
     }
 }
 
-type MonitorSwitchStream =
-    Pin<Box<dyn Stream<Item = Result<crate::pb::SimpleSwitch, Status>> + Send>>;
-
 impl Api {
-    async fn monitor_switch(
+    fn maybe_subscribe(
         &self,
+        want: Option<bool>,
         topic: &str,
-    ) -> Result<tonic::Response<MonitorSwitchStream>, Status> {
-        let stream = self
-            .mqtt
-            .subscribe(String::from(topic.to_string()))
-            .await
-            .into_stream()
-            .filter_map(|x| {
-                std::future::ready(match x {
-                    crate::parse::Message::SimpleSwitch(x) => Some(Ok(x)),
-                    _ => None,
-                })
-            });
-        Ok(tonic::Response::new(Box::pin(stream)))
+        convert: &'static (dyn Fn(crate::parse::Message) -> Option<MonitorResponse> + Sync),
+    ) -> Option<impl Future<Output = impl Stream<Item = Result<MonitorResponse, Status>> + 'static>>
+    {
+        want.unwrap_or_default().then(move || {
+            self.mqtt.subscribe(String::from(topic)).map(move |sub| {
+                sub.into_stream()
+                    .filter_map(move |x| std::future::ready(convert(x).map(|x| Ok(x))))
+            })
+        })
+    }
+}
+
+fn convert_temperature(x: crate::parse::Message) -> Option<MonitorResponse> {
+    match x {
+        crate::parse::Message::Climate(x) => Some(MonitorResponse {
+            message: Some(crate::pb::monitor_response::Message::LiveTemperature(x)),
+        }),
+        _ => None,
     }
 }
 
 #[tonic::async_trait]
 impl crate::pb::maison_server::Maison for Api {
-    type MonitorLiveTemperaturesStream =
-        Pin<Box<dyn Stream<Item = Result<crate::pb::Climate, Status>> + Send>>;
+    type MonitorEverythingStream =
+        Pin<Box<dyn Stream<Item = Result<MonitorResponse, Status>> + Send>>;
 
-    async fn monitor_live_temperatures(
+    async fn monitor_everything(
         &self,
-        _: tonic::Request<()>,
-    ) -> Result<tonic::Response<Self::MonitorLiveTemperaturesStream>, Status> {
-        let stream = futures::future::join_all([
-            self.mqtt.subscribe(String::from("zigbee/climate/bottom")),
-            self.mqtt.subscribe(String::from("zigbee/climate/middle")),
-            self.mqtt.subscribe(String::from("zigbee/climate/top")),
-            self.mqtt.subscribe(String::from("zigbee/climate/main")),
-            self.mqtt.subscribe(String::from("zigbee/climate/kitchen")),
-        ])
-        .await
-        .into_iter()
-        .map(|s| s.into_stream())
-        .collect::<Vec<_>>()
-        .merge();
-        Ok(tonic::Response::new(Box::pin(stream.filter_map(|x| {
-            std::future::ready(match x {
-                crate::parse::Message::Climate(x) => Some(Ok(x)),
-                _ => None,
-            })
-        }))))
-    }
-
-    type MonitorKitchenCeilingStream = MonitorSwitchStream;
-
-    async fn monitor_kitchen_ceiling(
-        &self,
-        _: tonic::Request<()>,
-    ) -> Result<tonic::Response<MonitorSwitchStream>, Status> {
-        self.monitor_switch("zigbee/kitchen_ceiling").await
-    }
-
-    type MonitorKitchenUnderCupboardsStream = MonitorSwitchStream;
-
-    async fn monitor_kitchen_under_cupboards(
-        &self,
-        _: tonic::Request<()>,
-    ) -> Result<tonic::Response<MonitorSwitchStream>, Status> {
-        self.monitor_switch("zigbee/kitchen_under_cupboards").await
-    }
-
-    type MonitorKitchenUnderStairsStream = MonitorSwitchStream;
-
-    async fn monitor_kitchen_under_stairs(
-        &self,
-        _: tonic::Request<()>,
-    ) -> Result<tonic::Response<MonitorSwitchStream>, Status> {
-        self.monitor_switch("zigbee/kitchen_under_stairs").await
-    }
-
-    type MonitorBoilerStream =
-        Pin<Box<dyn Stream<Item = Result<crate::pb::Boiler, Status>> + Send>>;
-
-    async fn monitor_boiler(
-        &self,
-        _: tonic::Request<()>,
-    ) -> Result<tonic::Response<Self::MonitorBoilerStream>, Status> {
-        let stream = self
-            .mqtt
-            .subscribe(String::from("zigbee/boiler"))
-            .await
-            .into_stream()
-            .filter_map(|x| {
-                std::future::ready(match x {
-                    crate::parse::Message::Boiler(x) => Some(Ok(x)),
+        req: tonic::Request<crate::pb::MonitorEverythingRequest>,
+    ) -> Result<tonic::Response<Self::MonitorEverythingStream>, Status> {
+        let req = req.into_inner();
+        let stream = futures::future::join_all(
+            [
+                self.maybe_subscribe(
+                    req.want_live_temperatures,
+                    "zigbee/climate/bottom",
+                    &convert_temperature,
+                ),
+                self.maybe_subscribe(
+                    req.want_live_temperatures,
+                    "zigbee/climate/middle",
+                    &convert_temperature,
+                ),
+                self.maybe_subscribe(
+                    req.want_live_temperatures,
+                    "zigbee/climate/top",
+                    &convert_temperature,
+                ),
+                self.maybe_subscribe(
+                    req.want_live_temperatures,
+                    "zigbee/climate/main",
+                    &convert_temperature,
+                ),
+                self.maybe_subscribe(
+                    req.want_live_temperatures,
+                    "zigbee/climate/kitchen",
+                    &convert_temperature,
+                ),
+                self.maybe_subscribe(req.want_kitchen_ceiling, "zigbee/kitchen_ceiling", &|x| {
+                    match x {
+                        crate::parse::Message::SimpleSwitch(x) => Some(MonitorResponse {
+                            message: Some(crate::pb::monitor_response::Message::KitchenCeiling(x)),
+                        }),
+                        _ => None,
+                    }
+                }),
+                self.maybe_subscribe(
+                    req.want_kitchen_under_cupboards,
+                    "zigbee/kitchen_under_cupboards",
+                    &|x| match x {
+                        crate::parse::Message::SimpleSwitch(x) => Some(MonitorResponse {
+                            message: Some(
+                                crate::pb::monitor_response::Message::KitchenUnderCupboards(x),
+                            ),
+                        }),
+                        _ => None,
+                    },
+                ),
+                self.maybe_subscribe(
+                    req.want_kitchen_under_stairs,
+                    "zigbee/kitchen_under_stairs",
+                    &|x| match x {
+                        crate::parse::Message::SimpleSwitch(x) => Some(MonitorResponse {
+                            message: Some(
+                                crate::pb::monitor_response::Message::KitchenUnderStairs(x),
+                            ),
+                        }),
+                        _ => None,
+                    },
+                ),
+                self.maybe_subscribe(req.want_boiler, "zigbee/boiler", &|x| match x {
+                    crate::parse::Message::Boiler(x) => Some(MonitorResponse {
+                        message: Some(crate::pb::monitor_response::Message::Boiler(x)),
+                    }),
                     _ => None,
-                })
-            });
+                }),
+            ]
+            .into_iter()
+            .filter_map(|maybe_subscription| maybe_subscription),
+        )
+        .await
+        .merge();
         Ok(tonic::Response::new(Box::pin(stream)))
     }
 }

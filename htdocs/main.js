@@ -1,4 +1,4 @@
-const {Climate} = require('codegen/maison_pb.js');
+const {Climate, MonitorEverythingRequest} = require('codegen/maison_pb.js');
 const {MaisonClient} = require('codegen/maison_grpc_web_pb.js');
 
 class Maison {
@@ -9,9 +9,49 @@ class Maison {
     }
 
     run = () => {
-        this.run_livetemp();
-        this.run_kitchen();
-        this.run_boiler();
+        var top = this;
+        var req = new MonitorEverythingRequest();
+        if (document.getElementsByClassName("livetemp").length > 0) {
+            req.setWantLiveTemperatures(true);
+        }
+        if (document.getElementsByClassName("kitchen_lights").length > 0) {
+            req.setWantKitchenCeiling(true);
+            req.setWantKitchenUnderCupboards(true);
+            req.setWantKitchenUnderStairs(true);
+        }
+        if (
+            (document.getElementsByClassName("heating").length > 0) ||
+            (document.getElementsByClassName("hot_water").length > 0)
+        ) {
+            req.setWantBoiler(true);
+        }
+        this.subscribe(() => {
+            return this.api.monitorEverything(req, {});
+        }, (response) => {
+            if (response === null) {
+                top.accept_livetemp(null);
+                top.set_kitchen(null, 0);
+                top.set_kitchen(null, 1);
+                top.set_kitchen(null, 2);
+                top.accept_boiler(null);
+                return;
+            }
+            if (response.hasLiveTemperature()) {
+                top.accept_livetemp(response.getLiveTemperature());
+            }
+            if (response.hasKitchenCeiling()) {
+                top.set_kitchen(response.getKitchenCeiling(), 0);
+            }
+            if (response.hasKitchenUnderCupboards()) {
+                top.set_kitchen(response.getKitchenUnderCupboards(), 1);
+            }
+            if (response.hasKitchenUnderStairs()) {
+                top.set_kitchen(response.getKitchenUnderStairs(), 2);
+            }
+            if (response.hasBoiler()) {
+                top.accept_boiler(response.getBoiler());
+            }
+        });
     }
 
     display_value = (staleness_key, value, lifetime, setter) => {
@@ -61,27 +101,22 @@ class Maison {
         });
     }
 
-    run_livetemp = () => {
-        var top = this;
-        this.subscribe(() => {
-            return this.api.monitorLiveTemperatures(new proto.google.protobuf.Empty(), {});
-        }, (response) => {
-            var key = (response === null) ? 'temperatures' : ('climate-' + response.getUnit());
-            top.display_value(
-                key,
-                (response === null) ? null : (response.hasTemperature() ? response.getTemperature() : null),
-                4500000,
-                (v) => {
-                    var els = document.getElementsByClassName(key);
-                    for (var i = 0; i < els.length; i++) {
-                        var livetemp_els = els[i].getElementsByClassName("livetemp");
-                        for (var j = 0; j < livetemp_els.length; j++) {
-                            livetemp_els[j].textContent = v === null ? '' : (v.toFixed(1) + " \xb0C");
-                        }
+    accept_livetemp = (response) => {
+        var key = (response === null) ? 'temperatures' : ('climate-' + response.getUnit());
+        this.display_value(
+            key,
+            (response === null) ? null : (response.hasTemperature() ? response.getTemperature() : null),
+            4500000,
+            (v) => {
+                var els = document.getElementsByClassName(key);
+                for (var i = 0; i < els.length; i++) {
+                    var livetemp_els = els[i].getElementsByClassName("livetemp");
+                    for (var j = 0; j < livetemp_els.length; j++) {
+                        livetemp_els[j].textContent = v === null ? '' : (v.toFixed(1) + " \xb0C");
                     }
-                },
-            );
-        });
+                }
+            },
+        );
     }
 
     set_kitchen = (response, light_index) => {
@@ -107,59 +142,35 @@ class Maison {
         );
     }
 
-    run_kitchen = () => {
-        var top = this;
-        this.subscribe(() => {
-            return this.api.monitorKitchenCeiling(new proto.google.protobuf.Empty(), {});
-        }, (response) => {
-            top.set_kitchen(response, 0);
-        });
-        this.subscribe(() => {
-            return this.api.monitorKitchenUnderCupboards(new proto.google.protobuf.Empty(), {});
-        }, (response) => {
-            top.set_kitchen(response, 1);
-        });
-        this.subscribe(() => {
-            return this.api.monitorKitchenUnderStairs(new proto.google.protobuf.Empty(), {});
-        }, (response) => {
-            top.set_kitchen(response, 2);
-        });
-    }
-
-    run_boiler = () => {
-        var top = this;
-        this.subscribe(() => {
-            return this.api.monitorBoiler(new proto.google.protobuf.Empty(), {});
-        }, (response) => {
-            this.display_value(
-                'live_heating',
-                (response === null) ? null : (response.hasHeating() ? response.getHeating() : null),
-                66000000,
-                (v) => {
-                    var els = document.getElementsByClassName("heating");
-                    for (var i = 0; i < els.length; i++) {
-                        var spans = els[i].getElementsByTagName("span");
-                        for (var j = 0; j < spans.length; j++) {
-                            spans[j].className = (v === null) ? 'light_unknown' : (v ? 'light_on' : 'light_off');
-                        }
+    accept_boiler = (response) => {
+        this.display_value(
+            'live_heating',
+            (response === null) ? null : (response.hasHeating() ? response.getHeating() : null),
+            66000000,
+            (v) => {
+                var els = document.getElementsByClassName("heating");
+                for (var i = 0; i < els.length; i++) {
+                    var spans = els[i].getElementsByTagName("span");
+                    for (var j = 0; j < spans.length; j++) {
+                        spans[j].className = (v === null) ? 'light_unknown' : (v ? 'light_on' : 'light_off');
                     }
-                },
-            );
-            this.display_value(
-                'live_hot_water',
-                (response === null) ? null : (response.hasHotWater() ? response.getHotWater() : null),
-                66000000,
-                (v) => {
-                    var els = document.getElementsByClassName("hot_water");
-                    for (var i = 0; i < els.length; i++) {
-                        var spans = els[i].getElementsByTagName("span");
-                        for (var j = 0; j < spans.length; j++) {
-                            spans[j].className = (v === null) ? 'light_unknown' : (v ? 'light_on' : 'light_off');
-                        }
+                }
+            },
+        );
+        this.display_value(
+            'live_hot_water',
+            (response === null) ? null : (response.hasHotWater() ? response.getHotWater() : null),
+            66000000,
+            (v) => {
+                var els = document.getElementsByClassName("hot_water");
+                for (var i = 0; i < els.length; i++) {
+                    var spans = els[i].getElementsByTagName("span");
+                    for (var j = 0; j < spans.length; j++) {
+                        spans[j].className = (v === null) ? 'light_unknown' : (v ? 'light_on' : 'light_off');
                     }
-                },
-            );
-        });
+                }
+            },
+        );
     }
 }
 
