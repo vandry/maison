@@ -13,6 +13,7 @@ use std::task::{Context, Poll};
 use std::time::Duration;
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender, unbounded_channel};
 use tokio::time::sleep;
+use tokio_stream::wrappers::errors::BroadcastStreamRecvError;
 use tracing::error;
 use weak_table::WeakValueHashMap;
 
@@ -54,15 +55,10 @@ impl Subscription {
 }
 
 impl Stream for SubscriptionStream {
-    type Item = crate::parse::Message;
+    type Item = Result<crate::parse::Message, BroadcastStreamRecvError>;
 
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        match self.project().rx.poll_next(cx) {
-            Poll::Pending => Poll::Pending,
-            Poll::Ready(None) => Poll::Ready(None),
-            Poll::Ready(Some(Err(_))) => Poll::Ready(None),
-            Poll::Ready(Some(Ok(b))) => Poll::Ready(Some(b)),
-        }
+        self.project().rx.poll_next(cx)
     }
 }
 
