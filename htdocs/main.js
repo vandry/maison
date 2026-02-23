@@ -25,6 +25,9 @@ class Maison {
         ) {
             req.setWantBoiler(true);
         }
+        if (document.getElementsByClassName("garden_lights").length > 0) {
+            req.setWantGardenLights(true);
+        }
         this.subscribe(() => {
             return this.api.monitorEverything(req, {});
         }, (response) => {
@@ -34,6 +37,7 @@ class Maison {
                 top.set_kitchen(null, 1);
                 top.set_kitchen(null, 2);
                 top.accept_boiler(null);
+                top.accept_garden_lights(null);
                 return;
             }
             if (response.hasLiveTemperature()) {
@@ -50,6 +54,9 @@ class Maison {
             }
             if (response.hasBoiler()) {
                 top.accept_boiler(response.getBoiler());
+            }
+            if (response.hasGardenLights()) {
+                top.accept_garden_lights(response.getGardenLights());
             }
         });
     }
@@ -163,6 +170,23 @@ class Maison {
             66000000,
             (v) => {
                 var els = document.getElementsByClassName("hot_water");
+                for (var i = 0; i < els.length; i++) {
+                    var spans = els[i].getElementsByTagName("span");
+                    for (var j = 0; j < spans.length; j++) {
+                        spans[j].className = (v === null) ? 'light_unknown' : (v ? 'light_on' : 'light_off');
+                    }
+                }
+            },
+        );
+    }
+
+    accept_garden_lights = (response) => {
+        this.display_value(
+            'garden_lights',
+            (response === null) ? null : (response.hasState() ? response.getState() : null),
+            66000000,
+            (v) => {
+                var els = document.getElementsByClassName("garden_lights");
                 for (var i = 0; i < els.length; i++) {
                     var spans = els[i].getElementsByTagName("span");
                     for (var j = 0; j < spans.length; j++) {

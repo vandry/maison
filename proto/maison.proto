@@ -24,6 +24,7 @@ message MonitorEverythingRequest {
   optional bool want_kitchen_under_cupboards = 3;
   optional bool want_kitchen_under_stairs = 4;
   optional bool want_boiler = 5;
+  optional bool want_garden_lights = 6;
 }
 
 message MonitorResponse {
@@ -33,6 +34,7 @@ message MonitorResponse {
     SimpleSwitch kitchen_under_cupboards = 3;
     SimpleSwitch kitchen_under_stairs = 4;
     Boiler boiler = 5;
+    SimpleSwitch garden_lights = 6;
   }
 }
 
