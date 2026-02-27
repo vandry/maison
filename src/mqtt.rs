@@ -13,7 +13,6 @@ use std::task::{Context, Poll};
 use std::time::Duration;
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender, unbounded_channel};
 use tokio::time::sleep;
-use tokio_stream::wrappers::errors::BroadcastStreamRecvError;
 use tracing::error;
 use weak_table::WeakValueHashMap;
 
@@ -25,7 +24,7 @@ struct SubscriptionCancel {
 
 #[derive(Debug)]
 pub struct Subscription {
-    tx: tokio::sync::broadcast::Sender<crate::parse::Message>,
+    tx: tokio::sync::watch::Sender<crate::parse::Message>,
     cancel: Option<SubscriptionCancel>,
 }
 
@@ -40,7 +39,7 @@ impl Drop for Subscription {
 pin_project! {
     pub struct SubscriptionStream {
         _subscription: Arc<Subscription>,
-        #[pin] rx: tokio_stream::wrappers::BroadcastStream<crate::parse::Message>,
+        #[pin] rx: tokio_stream::wrappers::WatchStream<crate::parse::Message>,
     }
 }
 
@@ -55,7 +54,7 @@ impl Subscription {
 }
 
 impl Stream for SubscriptionStream {
-    type Item = Result<crate::parse::Message, BroadcastStreamRecvError>;
+    type Item = crate::parse::Message;
 
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         self.project().rx.poll_next(cx)
@@ -85,7 +84,7 @@ impl Mqtt {
         let mut topics = self.topics.lock().unwrap();
         match topics.entry(topic) {
             weak_table::weak_value_hash_map::Entry::Vacant(e) => {
-                let (tx, _) = tokio::sync::broadcast::channel(2);
+                let (tx, _) = tokio::sync::watch::channel(crate::parse::Message::Empty);
                 let s = Arc::new(Subscription {
                     tx,
                     cancel: Some(SubscriptionCancel {

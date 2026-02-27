@@ -3,7 +3,6 @@ use futures::{FutureExt, Stream, StreamExt};
 use merge_streams::MergeStreams;
 use std::pin::Pin;
 use std::sync::Arc;
-use tokio_stream::wrappers::errors::BroadcastStreamRecvError;
 use tonic::Status;
 
 use crate::mqtt::Mqtt;
@@ -37,14 +36,8 @@ impl Api {
     {
         want.unwrap_or_default().then(move || {
             self.mqtt.subscribe(String::from(topic)).map(move |sub| {
-                sub.into_stream().filter_map(move |x| {
-                    std::future::ready(match x {
-                        Ok(m) => convert(m).map(|x| Ok(x)),
-                        Err(BroadcastStreamRecvError::Lagged(_)) => {
-                            Some(Err(Status::aborted("consumer lag")))
-                        }
-                    })
-                })
+                sub.into_stream()
+                    .filter_map(move |m| std::future::ready(convert(m).map(|x| Ok(x))))
             })
         })
     }

@@ -12,6 +12,7 @@ pub enum Problem {
 
 #[derive(Clone, Debug)]
 pub enum Message {
+    Empty,
     #[allow(dead_code)]
     Err(Problem, Bytes),
     Boiler(crate::pb::Boiler),
