@@ -14,6 +14,7 @@ use crate::pb::PersistentState;
 pub struct State {
     inner: RwLock<(PersistentState, bool)>,
     notify: Notify,
+    tx: tokio::sync::watch::Sender<Arc<PersistentState>>,
 }
 
 #[derive(clap::Args)]
@@ -112,9 +113,11 @@ impl Resource for State {
         }
         let serialised = r?;
         let state = PersistentState::parse(&serialised)?;
+        let (tx, _) = tokio::sync::watch::channel(Arc::new(state.clone()));
         let shared = Arc::new(Self {
             inner: RwLock::new((state, false)),
             notify: Notify::new(),
+            tx,
         });
         let mut new_path = path.clone();
         new_path.add_extension("new");
@@ -127,14 +130,6 @@ impl Resource for State {
             state_write_interval: a.state_write_interval,
         });
         Ok(shared)
-    }
-}
-
-pub struct ReadGuard<'a>(std::sync::RwLockReadGuard<'a, (PersistentState, bool)>);
-
-impl<'a> ReadGuard<'a> {
-    pub fn as_view(&'a self) -> crate::pb::PersistentStateView<'a> {
-        self.0.0.as_view()
     }
 }
 
@@ -154,13 +149,14 @@ impl Drop for WriteGuard<'_> {
     fn drop(&mut self) {
         if self.0.1 {
             self.1.notify.notify_waiters();
+            let _ = self.1.tx.send(Arc::new(self.0.0.clone()));
         }
     }
 }
 
 impl State {
-    pub fn read(&self) -> ReadGuard<'_> {
-        ReadGuard(self.inner.read().unwrap())
+    pub fn subscribe(&self) -> tokio::sync::watch::Receiver<Arc<PersistentState>> {
+        self.tx.subscribe()
     }
 
     pub fn write(&self) -> WriteGuard<'_> {

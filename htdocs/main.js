@@ -28,6 +28,9 @@ class Maison {
         if (document.getElementsByClassName("garden_lights").length > 0) {
             req.setWantGardenLights(true);
         }
+        if (document.getElementsByClassName("garden_lights_timer").length > 0) {
+            req.setWantMaison(true);
+        }
         this.subscribe(() => {
             return this.api.monitorEverything(req, {});
         }, (response) => {
@@ -38,6 +41,7 @@ class Maison {
                 top.set_kitchen(null, 2);
                 top.accept_boiler(null);
                 top.accept_garden_lights(null);
+                top.accept_maison(null);
                 return;
             }
             if (response.hasLiveTemperature()) {
@@ -57,6 +61,9 @@ class Maison {
             }
             if (response.hasGardenLights()) {
                 top.accept_garden_lights(response.getGardenLights());
+            }
+            if (response.hasMaison()) {
+                top.accept_maison(response.getMaison());
             }
         });
     }
@@ -195,6 +202,17 @@ class Maison {
                 }
             },
         );
+    }
+
+    accept_maison = (response) => {
+        var els = document.getElementsByClassName("garden_lights_timer");
+        for (var i = 0; i < els.length; i++) {
+            if ((response === null) || (!response.hasGardenLightUntil())) {
+                els[i].textContent = '';
+            } else {
+                els[i].textContent = response.getGardenLightUntil().getNanos();
+            }
+        }
     }
 }
 

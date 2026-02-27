@@ -7,10 +7,11 @@ use tokio_stream::wrappers::errors::BroadcastStreamRecvError;
 use tonic::Status;
 
 use crate::mqtt::Mqtt;
-use crate::pb::MonitorResponse;
+use crate::pb::{MaisonState, MonitorResponse, PersistentStateView};
 
 pub struct Api {
     mqtt: Arc<Mqtt>,
+    state: Arc<crate::state::State>,
 }
 
 #[resource]
@@ -18,11 +19,11 @@ pub struct Api {
 #[proto_descriptor(crate::pb::FILE_DESCRIPTOR_SET)]
 impl Resource for Api {
     fn new(
-        (mqtt,): (Arc<Mqtt>,),
+        (mqtt, state): (Arc<Mqtt>, Arc<crate::state::State>),
         _: comprehensive::NoArgs,
         _: &mut AssemblyRuntime<'_>,
     ) -> Result<Arc<Self>, std::convert::Infallible> {
-        Ok(Arc::new(Self { mqtt }))
+        Ok(Arc::new(Self { mqtt, state }))
     }
 }
 
@@ -58,6 +59,19 @@ fn convert_temperature(x: crate::parse::Message) -> Option<MonitorResponse> {
     }
 }
 
+impl From<PersistentStateView<'_>> for MaisonState {
+    fn from(s: PersistentStateView<'_>) -> MaisonState {
+        MaisonState {
+            garden_light_until: s.garden_light_until_opt().into_option().map(|ts| {
+                prost_types::Timestamp {
+                    seconds: ts.seconds(),
+                    nanos: ts.nanos(),
+                }
+            }),
+        }
+    }
+}
+
 #[tonic::async_trait]
 impl crate::pb::maison_server::Maison for Api {
     type MonitorEverythingStream =
@@ -68,7 +82,7 @@ impl crate::pb::maison_server::Maison for Api {
         req: tonic::Request<crate::pb::MonitorEverythingRequest>,
     ) -> Result<tonic::Response<Self::MonitorEverythingStream>, Status> {
         let req = req.into_inner();
-        let stream = futures::future::join_all(
+        let mqtt_stream = futures::future::join_all(
             [
                 self.maybe_subscribe(
                     req.want_live_temperatures,
@@ -133,24 +147,32 @@ impl crate::pb::maison_server::Maison for Api {
                     }),
                     _ => None,
                 }),
-                self.maybe_subscribe(
-                    req.want_garden_lights,
-                    "zigbee/garden",
-                    &|x| match x {
-                        crate::parse::Message::SimpleSwitch(x) => Some(MonitorResponse {
-                            message: Some(
-                                crate::pb::monitor_response::Message::GardenLights(x),
-                            ),
-                        }),
-                        _ => None,
-                    },
-                ),
+                self.maybe_subscribe(req.want_garden_lights, "zigbee/garden", &|x| match x {
+                    crate::parse::Message::SimpleSwitch(x) => Some(MonitorResponse {
+                        message: Some(crate::pb::monitor_response::Message::GardenLights(x)),
+                    }),
+                    _ => None,
+                }),
             ]
             .into_iter()
             .filter_map(|maybe_subscription| maybe_subscription),
         )
         .await
         .merge();
-        Ok(tonic::Response::new(Box::pin(stream)))
+        let stream: Self::MonitorEverythingStream = if req.want_maison.unwrap_or_default() {
+            Box::pin(futures::stream::select(
+                mqtt_stream,
+                tokio_stream::wrappers::WatchStream::new(self.state.subscribe()).map(|snapshot| {
+                    Ok(MonitorResponse {
+                        message: Some(crate::pb::monitor_response::Message::Maison(
+                            snapshot.as_view().into(),
+                        )),
+                    })
+                }),
+            ))
+        } else {
+            Box::pin(mqtt_stream)
+        };
+        Ok(tonic::Response::new(stream))
     }
 }

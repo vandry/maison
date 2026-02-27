@@ -25,13 +25,6 @@ impl Resource for TestState {
     ) -> Result<std::sync::Arc<Self>, std::convert::Infallible> {
         runtime.set_task(async move {
             loop {
-                {
-                    let lock = state.read();
-                    tracing::info!(
-                        "garden_light_until = {:?}",
-                        lock.as_view().garden_light_until()
-                    );
-                }
                 tokio::time::sleep(std::time::Duration::from_secs(15)).await;
                 {
                     let mut lock = state.write();
@@ -40,8 +33,31 @@ impl Resource for TestState {
                     ts.set_nanos(s.garden_light_until().nanos() + 1);
                     s.set_garden_light_until(ts);
                 }
-                tokio::time::sleep(std::time::Duration::from_secs(15)).await;
             }
+        });
+        Ok(std::sync::Arc::new(Self))
+    }
+}
+
+struct TestShowState;
+
+#[resource]
+impl Resource for TestShowState {
+    fn new(
+        (state,): (Arc<state::State>,),
+        _: comprehensive::NoArgs,
+        runtime: &mut AssemblyRuntime<'_>,
+    ) -> Result<std::sync::Arc<Self>, std::convert::Infallible> {
+        runtime.set_task(async move {
+            let mut stream = tokio_stream::wrappers::WatchStream::new(state.subscribe());
+            use futures::StreamExt;
+            while let Some(snapshot) = stream.next().await {
+                tracing::info!(
+                    "garden_light_until = {:?}",
+                    snapshot.as_view().garden_light_until()
+                );
+            }
+            Err("stream ended".into())
         });
         Ok(std::sync::Arc::new(Self))
     }
@@ -58,6 +74,7 @@ pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Arc<grpcweb::Server>,
         Arc<comprehensive_http::diag::HttpServer>,
         Arc<TestState>,
+        Arc<TestShowState>,
         PhantomData<comprehensive_spiffe::SpiffeTlsProvider>,
         PhantomData<api::Api>,
     )>::new()?
