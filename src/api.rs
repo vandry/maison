@@ -11,6 +11,7 @@ use crate::pb::{MaisonState, MonitorResponse, PersistentStateView};
 pub struct Api {
     mqtt: Arc<Mqtt>,
     state: Arc<crate::state::State>,
+    garden_lights: Arc<crate::lights::Garden>,
 }
 
 #[resource]
@@ -18,11 +19,19 @@ pub struct Api {
 #[proto_descriptor(crate::pb::FILE_DESCRIPTOR_SET)]
 impl Resource for Api {
     fn new(
-        (mqtt, state): (Arc<Mqtt>, Arc<crate::state::State>),
+        (mqtt, state, garden_lights): (
+            Arc<Mqtt>,
+            Arc<crate::state::State>,
+            Arc<crate::lights::Garden>,
+        ),
         _: comprehensive::NoArgs,
         _: &mut AssemblyRuntime<'_>,
     ) -> Result<Arc<Self>, std::convert::Infallible> {
-        Ok(Arc::new(Self { mqtt, state }))
+        Ok(Arc::new(Self {
+            mqtt,
+            state,
+            garden_lights,
+        }))
     }
 }
 
@@ -167,5 +176,15 @@ impl crate::pb::maison_server::Maison for Api {
             Box::pin(mqtt_stream)
         };
         Ok(tonic::Response::new(stream))
+    }
+
+    async fn set_garden_lights(
+        &self,
+        req: tonic::Request<crate::pb::SetLightsRequest>,
+    ) -> Result<tonic::Response<()>, Status> {
+        self.garden_lights
+            .duration_ms(req.into_inner().duration_ms)
+            .await?;
+        Ok(tonic::Response::new(()))
     }
 }

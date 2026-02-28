@@ -1,4 +1,4 @@
-const {Climate, MonitorEverythingRequest} = require('codegen/maison_pb.js');
+const {Climate, MonitorEverythingRequest, SetLightsRequest} = require('codegen/maison_pb.js');
 const {MaisonClient} = require('codegen/maison_grpc_web_pb.js');
 
 class Maison {
@@ -6,6 +6,7 @@ class Maison {
         this.api = api;
         this.staleness_expiries = {};
         this.kitchen = [null, null, null];
+        this.garden_lights = null;
     }
 
     run = () => {
@@ -25,8 +26,22 @@ class Maison {
         ) {
             req.setWantBoiler(true);
         }
-        if (document.getElementsByClassName("garden_lights").length > 0) {
+        var garden_lights_els = document.getElementsByClassName("garden_lights");
+        for (var i = 0; i < garden_lights_els.length; i++) {
             req.setWantGardenLights(true);
+            garden_lights_els[i].addEventListener('click', () => {
+                var req = new SetLightsRequest();
+                if (top.garden_lights) {
+                    req.setDurationMs(0);
+                } else {
+                    req.setDurationMs(600000);
+                }
+                this.api.setGardenLights(req, {}, (err, response) => {
+                    if (err) {
+                        console.log(err.code + " " + err.message);
+                    }
+                });
+            });
         }
         if (document.getElementsByClassName("garden_lights_timer").length > 0) {
             req.setWantMaison(true);
@@ -188,11 +203,13 @@ class Maison {
     }
 
     accept_garden_lights = (response) => {
+        var top = this;
         this.display_value(
             'garden_lights',
             (response === null) ? null : (response.hasState() ? response.getState() : null),
             66000000,
             (v) => {
+                top.garden_lights = v;
                 var els = document.getElementsByClassName("garden_lights");
                 for (var i = 0; i < els.length; i++) {
                     var spans = els[i].getElementsByTagName("span");

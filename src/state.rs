@@ -3,7 +3,7 @@ use comprehensive::v1::{AssemblyRuntime, Resource, TaskWithCleanup, resource};
 use humantime::parse_duration;
 use protobuf::{Parse, Serialize};
 use std::path::PathBuf;
-use std::sync::{Arc, RwLock};
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 use thiserror::Error;
 use tokio::sync::Notify;
@@ -12,7 +12,7 @@ use tracing::{error, info};
 use crate::pb::PersistentState;
 
 pub struct State {
-    inner: RwLock<(PersistentState, bool)>,
+    inner: Mutex<(PersistentState, bool)>,
     notify: Notify,
     tx: tokio::sync::watch::Sender<Arc<PersistentState>>,
 }
@@ -45,7 +45,7 @@ struct StateFlusher {
 
 impl StateFlusher {
     fn maybe_flush(&self) -> tokio::sync::futures::Notified<'_> {
-        if let Ok(mut lock) = self.shared.inner.write() {
+        if let Ok(mut lock) = self.shared.inner.lock() {
             if lock.1 {
                 match lock.0.serialize() {
                     Ok(b) => match std::fs::write(&self.new_path, b) {
@@ -115,7 +115,7 @@ impl Resource for State {
         let state = PersistentState::parse(&serialised)?;
         let (tx, _) = tokio::sync::watch::channel(Arc::new(state.clone()));
         let shared = Arc::new(Self {
-            inner: RwLock::new((state, false)),
+            inner: Mutex::new((state, false)),
             notify: Notify::new(),
             tx,
         });
@@ -133,19 +133,23 @@ impl Resource for State {
     }
 }
 
-pub struct WriteGuard<'a>(
-    std::sync::RwLockWriteGuard<'a, (PersistentState, bool)>,
+pub struct Guard<'a>(
+    std::sync::MutexGuard<'a, (PersistentState, bool)>,
     &'a State,
 );
 
-impl WriteGuard<'_> {
+impl Guard<'_> {
     pub fn as_mut(&mut self) -> crate::pb::PersistentStateMut<'_> {
         self.0.1 = true;
         self.0.0.as_mut()
     }
+
+    pub fn as_view(&self) -> crate::pb::PersistentStateView<'_> {
+        self.0.0.as_view()
+    }
 }
 
-impl Drop for WriteGuard<'_> {
+impl Drop for Guard<'_> {
     fn drop(&mut self) {
         if self.0.1 {
             self.1.notify.notify_waiters();
@@ -159,7 +163,7 @@ impl State {
         self.tx.subscribe()
     }
 
-    pub fn write(&self) -> WriteGuard<'_> {
-        WriteGuard(self.inner.write().unwrap(), self)
+    pub fn write(&self) -> Guard<'_> {
+        Guard(self.inner.lock().unwrap(), self)
     }
 }

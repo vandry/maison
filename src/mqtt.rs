@@ -100,6 +100,16 @@ impl Mqtt {
         }
     }
 
+    pub async fn publish<T, V>(&self, topic: T, payload: V) -> Result<(), rumqttc::ClientError>
+    where
+        T: Into<String>,
+        V: Into<Vec<u8>>,
+    {
+        self.client
+            .publish(topic, QoS::AtMostOnce, false, payload)
+            .await
+    }
+
     async fn run(
         &self,
         mut eventloop: EventLoop,

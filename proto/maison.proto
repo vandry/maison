@@ -2,6 +2,7 @@ syntax = "proto2";
 
 package maison;
 
+import "google/protobuf/empty.proto";
 import "google/protobuf/timestamp.proto";
 
 message Boiler {
@@ -46,6 +47,12 @@ message MonitorResponse {
   }
 }
 
+message SetLightsRequest {
+  // absent=indefinitely on, 0=off
+  optional uint64 duration_ms = 1;
+}
+
 service Maison {
   rpc MonitorEverything(MonitorEverythingRequest) returns (stream MonitorResponse) {}
+  rpc SetGardenLights(SetLightsRequest) returns (google.protobuf.Empty) {}
 }
