@@ -3,6 +3,7 @@ use futures::{FutureExt, Stream, StreamExt};
 use merge_streams::MergeStreams;
 use std::pin::Pin;
 use std::sync::Arc;
+use std::time::{SystemTime, UNIX_EPOCH};
 use tonic::Status;
 
 use crate::mqtt::Mqtt;
@@ -61,9 +62,18 @@ fn convert_temperature(x: crate::parse::Message) -> Option<MonitorResponse> {
     }
 }
 
+fn now_timestamp() -> Option<prost_types::Timestamp> {
+    let tt = SystemTime::now().duration_since(UNIX_EPOCH).ok()?;
+    Some(prost_types::Timestamp {
+        seconds: tt.as_secs().try_into().ok()?,
+        nanos: tt.subsec_nanos().try_into().ok()?,
+    })
+}
+
 impl From<PersistentStateView<'_>> for MaisonState {
     fn from(s: PersistentStateView<'_>) -> MaisonState {
         MaisonState {
+            now: now_timestamp(),
             garden_light_until: s.garden_light_until_opt().into_option().map(|ts| {
                 prost_types::Timestamp {
                     seconds: ts.seconds(),

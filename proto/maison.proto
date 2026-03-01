@@ -22,6 +22,7 @@ message SimpleSwitch {
 }
 
 message MaisonState {
+  optional google.protobuf.Timestamp now = 2;
   optional google.protobuf.Timestamp garden_light_until = 1;
 }
 

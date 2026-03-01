@@ -7,6 +7,8 @@ class Maison {
         this.staleness_expiries = {};
         this.kitchen = [null, null, null];
         this.garden_lights = null;
+        this.garden_lights_until = null;
+        this.garden_lights_refresh = null;
     }
 
     run = () => {
@@ -222,13 +224,60 @@ class Maison {
     }
 
     accept_maison = (response) => {
+        var countdown = null;
+        if ((response !== null) && response.hasGardenLightUntil()) {
+            var seconds = response.getGardenLightUntil().getSeconds() - response.getNow().getSeconds();
+            var nanos = response.getGardenLightUntil().getNanos() - response.getNow().getNanos();
+            if (nanos < 0) {
+                nanos += 1000000000;
+                seconds -= 1;
+            }
+            this.garden_lights_until = Date.now() + (seconds * 1000) + (nanos / 1000000);
+        } else {
+            this.garden_lights_until = null;
+        }
+        this.garden_lights_update();
+        if ((this.garden_lights_until !== null) && (this.garden_lights_refresh === null)) {
+            var top = this;
+            this.garden_lights_refresh = setInterval(() => { top.garden_lights_update() }, 500);
+        }
+    }
+
+    garden_lights_update = () => {
+        var v = this.garden_lights_until;
+        var countdown = "";
+        if (v === null) {
+            if (this.garden_lights_refresh !== null) {
+                clearInterval(this.garden_lights_refresh);
+                this.garden_lights_refresh = null;
+                this.garden_lights_until = null;
+            }
+        } else {
+            var remaining = v - Date.now();
+            if (remaining < 0) {
+                if (this.garden_lights_refresh !== null) {
+                    clearInterval(this.garden_lights_refresh);
+                    this.garden_lights_refresh = null;
+                    this.garden_lights_until = null;
+                }
+            } else {
+                remaining -= remaining % 1000;
+                if (remaining < 60000) {
+                    countdown = (remaining / 1000).toFixed(0) + "s";
+                } else {
+                    var ms = remaining % 60000;
+                    var m = (remaining - ms) / 60000;
+                    if (ms < 10000) {
+                        countdown = m + "m0" + (ms / 1000).toFixed(0) + "s";
+                    } else {
+                        countdown = m + "m" + (ms / 1000).toFixed(0) + "s";
+                    }
+                }
+            }
+        }
         var els = document.getElementsByClassName("garden_lights_timer");
         for (var i = 0; i < els.length; i++) {
-            if ((response === null) || (!response.hasGardenLightUntil())) {
-                els[i].textContent = '';
-            } else {
-                els[i].textContent = response.getGardenLightUntil().getNanos();
-            }
+            els[i].textContent = countdown;
         }
     }
 }
