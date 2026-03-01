@@ -18,6 +18,7 @@ pub enum Message {
     Boiler(crate::pb::Boiler),
     Climate(crate::pb::Climate),
     SimpleSwitch(crate::pb::SimpleSwitch),
+    Contact(Option<bool>),
 }
 
 fn check_last_seen(ls_epoch: u64, max_staleness: Duration) -> Result<(), ()> {
@@ -90,6 +91,19 @@ fn parse_simple_switch(p: &Bytes) -> Result<Message, Problem> {
     }))
 }
 
+#[derive(Deserialize, Debug)]
+struct ContactJson {
+    contact: bool,
+    last_seen: u64,
+}
+
+fn parse_contact(p: &Bytes) -> Result<Message, Problem> {
+    let json = std::str::from_utf8(p).map_err(|_| Problem::BadUtf8)?;
+    let m = serde_json::from_str::<ContactJson>(json).map_err(|_| Problem::BadJson)?;
+    check_last_seen(m.last_seen, Duration::from_secs(66000)).map_err(|_| Problem::Stale)?;
+    Ok(Message::Contact(Some(m.contact)))
+}
+
 impl From<rumqttc::Publish> for Message {
     fn from(p: rumqttc::Publish) -> Message {
         let m = match p.topic.as_str() {
@@ -98,6 +112,7 @@ impl From<rumqttc::Publish> for Message {
             "zigbee/kitchen_ceiling" => parse_simple_switch(&p.payload),
             "zigbee/kitchen_under_stairs" => parse_simple_switch(&p.payload),
             "zigbee/kitchen_under_cupboards" => parse_simple_switch(&p.payload),
+            "zigbee/garden_door" => parse_contact(&p.payload),
             t => match t.strip_prefix("zigbee/climate/") {
                 Some(unit) => parse_climate(&p.payload, unit),
                 None => Err(Problem::UnrecognisedTopic),

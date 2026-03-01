@@ -115,9 +115,7 @@ impl Mqtt {
         mut eventloop: EventLoop,
         health_signaller: HealthSignaller,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        let mut backoff = backoff::ExponentialBackoffBuilder::new()
-            .with_max_elapsed_time(None) // Never completely give up.
-            .build();
+        let mut backoff = crate::new_backoff();
         let mut healthy = false;
         loop {
             let now_healthy = match eventloop.poll().await {

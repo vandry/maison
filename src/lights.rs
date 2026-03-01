@@ -120,9 +120,7 @@ impl Garden {
     }
 
     async fn cancel_timer_on_off(&self) -> Result<(), RecvError> {
-        let mut backoff = backoff::ExponentialBackoffBuilder::new()
-            .with_max_elapsed_time(None) // Never completely give up.
-            .build();
+        let mut backoff = crate::new_backoff();
         loop {
             self.mqtt
                 .subscribe(String::from("zigbee/garden"))
