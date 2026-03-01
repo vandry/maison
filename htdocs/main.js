@@ -22,6 +22,15 @@ class Maison {
             req.setWantKitchenUnderCupboards(true);
             req.setWantKitchenUnderStairs(true);
         }
+        if (document.getElementsByClassName("kitchen_ceiling").length > 0) {
+            req.setWantKitchenCeiling(true);
+        }
+        if (document.getElementsByClassName("kitchen_under_cupboards").length > 0) {
+            req.setWantKitchenUnderCupboards(true);
+        }
+        if (document.getElementsByClassName("kitchen_under_stairs").length > 0) {
+            req.setWantKitchenUnderStairs(true);
+        }
         if (
             (document.getElementsByClassName("heating").length > 0) ||
             (document.getElementsByClassName("hot_water").length > 0)
@@ -83,6 +92,23 @@ class Maison {
                 top.accept_maison(response.getMaison());
             }
         });
+        var closer_els = document.getElementsByClassName("closer");
+        for (var i = 0; i < closer_els.length; i++) {
+            for (var j = 0; j < closer_els[i].childNodes.length; j++) {
+                closer_els[i].childNodes[j].addEventListener('click', (e) => {
+                    e.target.parentNode.parentNode.style.display = "none";
+                });
+            }
+        }
+        var kitchen_details_els = document.getElementsByClassName("kitchen_details");
+        for (var i = 0; i < kitchen_details_els.length; i++) {
+            kitchen_details_els[i].addEventListener('click', () => {
+                var els = document.getElementsByClassName("kitchen_popup");
+                for (var i = 0; i < els.length; i++) {
+                    els[i].style.display = "inherit";
+                }
+            });
+        }
     }
 
     display_value = (staleness_key, value, lifetime, setter) => {
@@ -162,11 +188,35 @@ class Maison {
                     var on = known && top.kitchen[0] && top.kitchen[1] && top.kitchen[2];
                     var off = known && (!top.kitchen[0]) && (!top.kitchen[1]) && (!top.kitchen[2]);
                     var overall = known ? (on ? "light_on" : (off ? "light_off" : "light_some")) : "light_unknown";
+                    var overall0 = (top.kitchen[0] === null) ? "light_unknown" : (top.kitchen[0] ? "light_on" : "light_off");
+                    var overall1 = (top.kitchen[1] === null) ? "light_unknown" : (top.kitchen[1] ? "light_on" : "light_off");
+                    var overall2 = (top.kitchen[2] === null) ? "light_unknown" : (top.kitchen[2] ? "light_on" : "light_off");
                     var els = document.getElementsByClassName("kitchen_lights");
                     for (var i = 0; i < els.length; i++) {
                         var spans = els[i].getElementsByTagName("span");
                         for (var j = 0; j < spans.length; j++) {
                             spans[j].className = overall;
+                        }
+                    }
+                    var els0 = document.getElementsByClassName("kitchen_ceiling");
+                    for (var i = 0; i < els0.length; i++) {
+                        var spans = els0[i].getElementsByTagName("span");
+                        for (var j = 0; j < spans.length; j++) {
+                            spans[j].className = overall0;
+                        }
+                    }
+                    var els1 = document.getElementsByClassName("kitchen_under_cupboards");
+                    for (var i = 0; i < els1.length; i++) {
+                        var spans = els1[i].getElementsByTagName("span");
+                        for (var j = 0; j < spans.length; j++) {
+                            spans[j].className = overall1;
+                        }
+                    }
+                    var els2 = document.getElementsByClassName("kitchen_under_stairs");
+                    for (var i = 0; i < els2.length; i++) {
+                        var spans = els2[i].getElementsByTagName("span");
+                        for (var j = 0; j < spans.length; j++) {
+                            spans[j].className = overall2;
                         }
                     }
                 },
