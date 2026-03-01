@@ -53,7 +53,14 @@ message SetLightsRequest {
   optional uint64 duration_ms = 1;
 }
 
+message SetManyRequest {
+  optional bool kitchen_ceiling = 1;
+  optional bool kitchen_under_cupboards = 2;
+  optional bool kitchen_under_stairs = 3;
+}
+
 service Maison {
   rpc MonitorEverything(MonitorEverythingRequest) returns (stream MonitorResponse) {}
   rpc SetGardenLights(SetLightsRequest) returns (google.protobuf.Empty) {}
+  rpc SetMany(SetManyRequest) returns (google.protobuf.Empty) {}
 }

@@ -51,6 +51,19 @@ impl Api {
             })
         })
     }
+
+    async fn maybe_publish<T>(&self, topic: T, v: Option<bool>) -> Result<(), Status>
+    where
+        T: Into<String>,
+    {
+        if let Some(l) = v {
+            self.mqtt
+                .publish(topic, if l { b"ON".as_ref() } else { b"OFF".as_ref() })
+                .await
+                .map_err(|e| tonic::Status::internal(e.to_string()))?;
+        }
+        Ok(())
+    }
 }
 
 fn convert_temperature(x: crate::parse::Message) -> Option<MonitorResponse> {
@@ -195,6 +208,28 @@ impl crate::pb::maison_server::Maison for Api {
         self.garden_lights
             .duration_ms(req.into_inner().duration_ms)
             .await?;
+        Ok(tonic::Response::new(()))
+    }
+
+    async fn set_many(
+        &self,
+        req: tonic::Request<crate::pb::SetManyRequest>,
+    ) -> Result<tonic::Response<()>, Status> {
+        let req = req.into_inner();
+        let (r1, r2, r3) = futures::join!(
+            self.maybe_publish("zigbee/kitchen_ceiling/set/state", req.kitchen_ceiling),
+            self.maybe_publish(
+                "zigbee/kitchen_under_cupboards/set/state",
+                req.kitchen_under_cupboards
+            ),
+            self.maybe_publish(
+                "zigbee/kitchen_under_stairs/set/state",
+                req.kitchen_under_stairs
+            ),
+        );
+        r1?;
+        r2?;
+        r3?;
         Ok(tonic::Response::new(()))
     }
 }

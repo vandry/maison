@@ -1,4 +1,4 @@
-const {Climate, MonitorEverythingRequest, SetLightsRequest} = require('codegen/maison_pb.js');
+const {Climate, MonitorEverythingRequest, SetLightsRequest, SetManyRequest} = require('codegen/maison_pb.js');
 const {MaisonClient} = require('codegen/maison_grpc_web_pb.js');
 
 class Maison {
@@ -17,19 +17,86 @@ class Maison {
         if (document.getElementsByClassName("livetemp").length > 0) {
             req.setWantLiveTemperatures(true);
         }
-        if (document.getElementsByClassName("kitchen_lights").length > 0) {
+        var kitchen_lights_els = document.getElementsByClassName("kitchen_lights");
+        for (var i = 0; i < kitchen_lights_els.length; i++) {
             req.setWantKitchenCeiling(true);
             req.setWantKitchenUnderCupboards(true);
             req.setWantKitchenUnderStairs(true);
+            kitchen_lights_els[i].addEventListener('click', () => {
+                var req = new SetManyRequest();
+                var all_known = (top.kitchen[0] !== null) && (top.kitchen[1] !== null) && (top.kitchen[2] !== null);
+                if (all_known && top.kitchen[0] && top.kitchen[1] && top.kitchen[2]) {
+                    req.setKitchenCeiling(false);
+                    req.setKitchenUnderCupboards(false);
+                    req.setKitchenUnderStairs(false);
+                } else if (all_known && (!top.kitchen[0]) && (!top.kitchen[1]) && (!top.kitchen[2])) {
+                    req.setKitchenCeiling(true);
+                    req.setKitchenUnderCupboards(true);
+                    req.setKitchenUnderStairs(true);
+                } else {
+                    var els = document.getElementsByClassName("kitchen_popup");
+                    for (var i = 0; i < els.length; i++) {
+                        els[i].style.display = "inherit";
+                    }
+                    return;
+                }
+                this.api.setMany(req, {}, (err, response) => {
+                    if (err) {
+                        console.log(err.code + " " + err.message);
+                    }
+                });
+            });
         }
-        if (document.getElementsByClassName("kitchen_ceiling").length > 0) {
+        var kitchen_ceiling_els = document.getElementsByClassName("kitchen_ceiling");
+        for (var i = 0; i < kitchen_ceiling_els.length; i++) {
             req.setWantKitchenCeiling(true);
+            kitchen_ceiling_els[i].addEventListener('click', () => {
+                var req = new SetManyRequest();
+                if (top.kitchen[0]) {
+                    req.setKitchenCeiling(false);
+                } else {
+                    req.setKitchenCeiling(true);
+                }
+                this.api.setMany(req, {}, (err, response) => {
+                    if (err) {
+                        console.log(err.code + " " + err.message);
+                    }
+                });
+            });
         }
-        if (document.getElementsByClassName("kitchen_under_cupboards").length > 0) {
+        var kitchen_under_cupboards_els = document.getElementsByClassName("kitchen_under_cupboards");
+        for (var i = 0; i < kitchen_under_cupboards_els.length; i++) {
             req.setWantKitchenUnderCupboards(true);
+            kitchen_under_cupboards_els[i].addEventListener('click', () => {
+                var req = new SetManyRequest();
+                if (top.kitchen[1]) {
+                    req.setKitchenUnderCupboards(false);
+                } else {
+                    req.setKitchenUnderCupboards(true);
+                }
+                this.api.setMany(req, {}, (err, response) => {
+                    if (err) {
+                        console.log(err.code + " " + err.message);
+                    }
+                });
+            });
         }
-        if (document.getElementsByClassName("kitchen_under_stairs").length > 0) {
+        var kitchen_under_stairs_els = document.getElementsByClassName("kitchen_under_stairs");
+        for (var i = 0; i < kitchen_under_stairs_els.length; i++) {
             req.setWantKitchenUnderStairs(true);
+            kitchen_under_stairs_els[i].addEventListener('click', () => {
+                var req = new SetManyRequest();
+                if (top.kitchen[2]) {
+                    req.setKitchenUnderStairs(false);
+                } else {
+                    req.setKitchenUnderStairs(true);
+                }
+                this.api.setMany(req, {}, (err, response) => {
+                    if (err) {
+                        console.log(err.code + " " + err.message);
+                    }
+                });
+            });
         }
         if (
             (document.getElementsByClassName("heating").length > 0) ||
