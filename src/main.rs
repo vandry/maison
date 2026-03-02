@@ -3,6 +3,7 @@ use std::sync::Arc;
 
 mod api;
 mod autogarden;
+mod autokitchen;
 mod grpcweb;
 mod lights;
 mod mqtt;
@@ -34,6 +35,7 @@ pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
         PhantomData<comprehensive_spiffe::SpiffeTlsProvider>,
         PhantomData<api::Api>,
         Arc<autogarden::AutoGarden>,
+        Arc<autokitchen::AutoKitchen>,
     )>::new()?
     .run()
     .await

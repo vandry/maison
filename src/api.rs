@@ -13,6 +13,7 @@ pub struct Api {
     mqtt: Arc<Mqtt>,
     state: Arc<crate::state::State>,
     garden_lights: Arc<crate::lights::Garden>,
+    autokitchen: Arc<crate::autokitchen::AutoKitchen>,
 }
 
 #[resource]
@@ -20,10 +21,11 @@ pub struct Api {
 #[proto_descriptor(crate::pb::FILE_DESCRIPTOR_SET)]
 impl Resource for Api {
     fn new(
-        (mqtt, state, garden_lights): (
+        (mqtt, state, garden_lights, autokitchen): (
             Arc<Mqtt>,
             Arc<crate::state::State>,
             Arc<crate::lights::Garden>,
+            Arc<crate::autokitchen::AutoKitchen>,
         ),
         _: comprehensive::NoArgs,
         _: &mut AssemblyRuntime<'_>,
@@ -32,6 +34,7 @@ impl Resource for Api {
             mqtt,
             state,
             garden_lights,
+            autokitchen,
         }))
     }
 }
@@ -216,6 +219,9 @@ impl crate::pb::maison_server::Maison for Api {
         req: tonic::Request<crate::pb::SetManyRequest>,
     ) -> Result<tonic::Response<()>, Status> {
         let req = req.into_inner();
+        if req.kitchen_ceiling.is_some() {
+            self.autokitchen.suppress();
+        }
         let (r1, r2, r3) = futures::join!(
             self.maybe_publish("zigbee/kitchen_ceiling/set/state", req.kitchen_ceiling),
             self.maybe_publish(
