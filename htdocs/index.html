@@ -4,79 +4,79 @@
     <title>Maison</title>
   </head>
   <body>
-    <table width="100%">
-      <tbody>
-        <tr>
-          <td class="heating" width="50%">
-            <span class="light_unknown">
-              <img src="radiator_unknown.svg" class="l_unknown" />
-              <img src="radiator_on.svg" class="l_on" />
-              <img src="radiator_off.svg" class="l_off" />
-            </span>
-          </td>
-          <td class="hot_water" width="50%">
-            <span class="light_unknown">
-              <img src="unknown_water.svg" class="l_unknown" />
-              <img src="hot_water.svg" class="l_on" />
-              <img src="cold_water.svg" class="l_off" />
-            </span>
-          </td>
-        </tr>
-      </tbody>
-    </table>
-    <table class="temperatures" width="100%">
-      <tbody>
-        <tr class="climate-bottom">
-            <td>Den</td><td class="livetemp"></td>
-        </tr>
-        <tr class="climate-kitchen">
-            <td>Kitchen</td><td class="livetemp"></td>
-        </tr>
-        <tr class="climate-main">
-            <td>Main</td><td class="livetemp"></td>
-        </tr>
-        <tr class="climate-middle">
-            <td>Lower bedroom</td><td class="livetemp"></td>
-        </tr>
-        <tr class="climate-top">
-            <td>Upper bedroom</td><td class="livetemp"></td>
-        </tr>
-      </tbody>
-    </table>
-    <table border="1" width="25%">
-      <thead><tr><th colspan="2">Kitchen</th></tr></thead>
-      <tbody>
-        <tr>
-          <td align="center" width="50%" valign="middle" class="kitchen_lights">
-            <span class="light_unknown">
-              <img src="light_unknown.svg" class="l_unknown" />
-              <img src="light_on.svg" class="l_on" />
-              <img src="light_off.svg" class="l_off" />
-              <img src="light_half.svg" class="l_some" />
-            </span>
-          </td>
-          <td align="center" width="50%" valign="middle" class="kitchen_details">
-            <input type="button" value="&middot;&middot;&middot;" />
-          </td>
-        </tr>
-      </tbody>
-    </table>
-    <table border="1" width="25%">
-      <thead><tr><th colspan="2">Garden</th></tr></thead>
-      <tbody>
-        <tr>
-          <td align="center" width="50%" valign="middle" class="garden_lights">
-            <span class="light_unknown">
-              <img src="light_unknown.svg" class="l_unknown" />
-              <img src="light_on.svg" class="l_on" />
-              <img src="light_off.svg" class="l_off" />
-            </span>
-          </td>
-          <td align="center" width="50%" valign="middle" class="garden_lights_timer">
-          </td>
-        </tr>
-      </tbody>
-    </table>
+    <div class="part0">
+      <div class="heating">
+        <span class="light_unknown">
+          <img src="radiator_unknown.svg" class="l_unknown" />
+          <img src="radiator_on.svg" class="l_on" />
+          <img src="radiator_off.svg" class="l_off" />
+        </span>
+      </div>
+      <div class="hot_water">
+        <span class="light_unknown">
+          <img src="unknown_water.svg" class="l_unknown" />
+          <img src="hot_water.svg" class="l_on" />
+          <img src="cold_water.svg" class="l_off" />
+        </span>
+      </div>
+    </div>
+    <div class="part1">
+      <table class="temperatures">
+        <tbody>
+          <tr class="climate-bottom">
+              <td>Den</td><td class="livetemp"></td>
+          </tr>
+          <tr class="climate-kitchen">
+              <td>Kitchen</td><td class="livetemp"></td>
+          </tr>
+          <tr class="climate-main">
+              <td>Main</td><td class="livetemp"></td>
+          </tr>
+          <tr class="climate-middle">
+              <td>Lower bedroom</td><td class="livetemp"></td>
+          </tr>
+          <tr class="climate-top">
+              <td>Upper bedroom</td><td class="livetemp"></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="part2">
+      <table border="1">
+        <thead><tr><th colspan="2">Kitchen</th></tr></thead>
+        <tbody>
+          <tr>
+            <td align="center" width="50%" valign="middle" class="kitchen_lights">
+              <span class="light_unknown">
+                <img src="light_unknown.svg" class="l_unknown" />
+                <img src="light_on.svg" class="l_on" />
+                <img src="light_off.svg" class="l_off" />
+                <img src="light_half.svg" class="l_some" />
+              </span>
+            </td>
+            <td align="center" width="50%" valign="middle" class="kitchen_details">
+              <input type="button" value="&middot;&middot;&middot;" />
+            </td>
+          </tr>
+        </tbody>
+      </table>
+      <table border="1">
+        <thead><tr><th colspan="2">Garden</th></tr></thead>
+        <tbody>
+          <tr>
+            <td align="center" width="50%" valign="middle" class="garden_lights">
+              <span class="light_unknown">
+                <img src="light_unknown.svg" class="l_unknown" />
+                <img src="light_on.svg" class="l_on" />
+                <img src="light_off.svg" class="l_off" />
+              </span>
+            </td>
+            <td align="center" width="50%" valign="middle" class="garden_lights_timer">
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
     <div class="kitchen_popup">
       <div class="closer"><img src="cross.svg" /></div>
       <div class="fit fit_1_3">
