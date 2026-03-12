@@ -11,6 +11,15 @@
 .part0 > div {
     height: 100%;
     width: 50%;
+    position: relative;
+    align-items: center;
+    display: flex;
+}
+
+.part0 > div > div {
+    position: relative;
+    height: 100%;
+    width: 100%;
 }
 
 .part2 {
@@ -79,8 +88,39 @@ table.temperatures tr {
     outline: thin solid;
 }
 
+table.temperatures img {
+    height: 1em;
+    vertical-align: bottom;
+}
+
 .livetemp {
-    text-align: right;
+    justify-content: right;
+    left: 0;
+    right: 65%;
+}
+
+.thermostat_going {
+    justify-content: center;
+    left: 35%;
+    right: 50%;
+}
+
+.colder {
+    justify-content: center;
+    left: 50%;
+    right: 35%;
+}
+
+.setpoint {
+    justify-content: center;
+    left: 65%;
+    right: 15%;
+}
+
+.warmer {
+    justify-content: center;
+    left: 85%;
+    right: 0;
 }
 
 .l_on {
@@ -128,6 +168,24 @@ table.temperatures tr {
     overflow: hidden;
     z-index: 10;
     background-color: white;
+}
+
+.thermostat {
+    width: 10em;
+}
+
+.thermostat > div {
+    position: relative;
+    width: 100%;
+    height: 100%;
+}
+
+.thermostat > div > div {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    display: flex;
+    align-items: center;
 }
 
 img {

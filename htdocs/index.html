@@ -5,38 +5,91 @@
   </head>
   <body>
     <div class="part0">
-      <div class="heating">
-        <span class="light_unknown">
-          <img src="radiator_unknown.svg" class="l_unknown" />
-          <img src="radiator_on.svg" class="l_on" />
-          <img src="radiator_off.svg" class="l_off" />
-        </span>
+      <div>
+        <div class="heating">
+          <span class="light_unknown">
+            <img src="radiator_unknown.svg" class="l_unknown" />
+            <img src="radiator_on.svg" class="l_on" />
+            <img src="radiator_off.svg" class="l_off" />
+          </span>
+        </div>
+        <div class="heating_override">
+          <span class="light_unknown">
+            <img src="override.svg" class="l_on" />
+            <img src="scheduled.svg" class="l_off" />
+          </span>
+        </div>
+        <div class="heating_timer"></div>
       </div>
-      <div class="hot_water">
-        <span class="light_unknown">
-          <img src="unknown_water.svg" class="l_unknown" />
-          <img src="hot_water.svg" class="l_on" />
-          <img src="cold_water.svg" class="l_off" />
-        </span>
+      <div>
+        <div class="hot_water">
+          <span class="light_unknown">
+            <img src="unknown_water.svg" class="l_unknown" />
+            <img src="hot_water.svg" class="l_on" />
+            <img src="cold_water.svg" class="l_off" />
+          </span>
+        </div>
+        <div class="hot_water_override">
+          <span class="light_unknown">
+            <img src="override.svg" class="l_on" />
+            <img src="scheduled.svg" class="l_off" />
+          </span>
+        </div>
+        <div class="hot_water_timer"></div>
       </div>
     </div>
     <div class="part1">
       <table class="temperatures">
         <tbody>
           <tr class="climate-bottom">
-              <td>Den</td><td class="livetemp"></td>
+            <td>Den</td>
+            <td class="thermostat"><div>
+              <div class="livetemp"></div>
+              <div class="thermostat_going">&#10145;</div>
+              <div class="colder"><img src="colder.svg" /></div>
+              <div class="setpoint"></div>
+              <div class="warmer"><img src="warmer.svg" /></div>
+            </div></td>
           </tr>
           <tr class="climate-kitchen">
-              <td>Kitchen</td><td class="livetemp"></td>
+            <td>Kitchen</td>
+            <td class="thermostat"><div>
+              <div class="livetemp"></div>
+              <div class="thermostat_going">&#10145;</div>
+              <div class="colder"><img src="colder.svg" /></div>
+              <div class="setpoint"></div>
+              <div class="warmer"><img src="warmer.svg" /></div>
+            </div></td>
           </tr>
           <tr class="climate-main">
-              <td>Main</td><td class="livetemp"></td>
+            <td>Main</td>
+            <td class="thermostat"><div>
+              <div class="livetemp"></div>
+              <div class="thermostat_going">&#10145;</div>
+              <div class="colder"><img src="colder.svg" /></div>
+              <div class="setpoint"></div>
+              <div class="warmer"><img src="warmer.svg" /></div>
+            </div></td>
           </tr>
           <tr class="climate-middle">
-              <td>Lower bedroom</td><td class="livetemp"></td>
+            <td>Lower bedroom</td>
+            <td class="thermostat"><div>
+              <div class="livetemp"></div>
+              <div class="thermostat_going">&#10145;</div>
+              <div class="colder"><img src="colder.svg" /></div>
+              <div class="setpoint"></div>
+              <div class="warmer"><img src="warmer.svg" /></div>
+            </div></td>
           </tr>
           <tr class="climate-top">
-              <td>Upper bedroom</td><td class="livetemp"></td>
+            <td>Upper bedroom</td>
+            <td class="thermostat"><div>
+              <div class="livetemp"></div>
+              <div class="thermostat_going">&#10145;</div>
+              <div class="colder"><img src="colder.svg" /></div>
+              <div class="setpoint"></div>
+              <div class="warmer"><img src="warmer.svg" /></div>
+            </div></td>
           </tr>
         </tbody>
       </table>

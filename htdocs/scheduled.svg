@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<svg
+   xmlns:dc="http://purl.org/dc/elements/1.1/"
+   xmlns:cc="http://creativecommons.org/ns#"
+   xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#"
+   xmlns:svg="http://www.w3.org/2000/svg"
+   xmlns="http://www.w3.org/2000/svg"
+   version="1.1"
+   id="svg5332"
+   viewBox="0 0 256.00007 256.00002"
+   height="72.248894mm"
+   width="72.248909mm">
+  <title
+     id="title6076">Clock</title>
+  <defs
+     id="defs5334" />
+  <metadata
+     id="metadata5337">
+    <rdf:RDF>
+      <cc:Work
+         rdf:about="">
+        <dc:format>image/svg+xml</dc:format>
+        <dc:type
+           rdf:resource="http://purl.org/dc/dcmitype/StillImage" />
+        <dc:title>Clock</dc:title>
+        <cc:license
+           rdf:resource="http://creativecommons.org/publicdomain/zero/1.0/" />
+        <dc:creator>
+          <cc:Agent>
+            <dc:title>Josh &quot;Cheeseness&quot; Bush</dc:title>
+          </cc:Agent>
+        </dc:creator>
+        <dc:description>Originally created for the official shirt for the 2014 Open Source Developers' Conference held at Griffith University.</dc:description>
+        <dc:subject>
+          <rdf:Bag>
+            <rdf:li>clock time</rdf:li>
+          </rdf:Bag>
+        </dc:subject>
+        <dc:date>2014-10-22</dc:date>
+      </cc:Work>
+      <cc:License
+         rdf:about="http://creativecommons.org/publicdomain/zero/1.0/">
+        <cc:permits
+           rdf:resource="http://creativecommons.org/ns#Reproduction" />
+        <cc:permits
+           rdf:resource="http://creativecommons.org/ns#Distribution" />
+        <cc:permits
+           rdf:resource="http://creativecommons.org/ns#DerivativeWorks" />
+      </cc:License>
+    </rdf:RDF>
+  </metadata>
+  <g
+     transform="translate(-362.5464,-406.21469)"
+     id="layer1">
+    <path
+       id="path7516-1-0"
+       d="m 490.54644,406.2147 a 128.00637,127.99655 0 0 0 -128,127.98915 128.00637,127.99655 0 0 0 128,128.01085 128.00637,127.99655 0 0 0 128,-128.01085 128.00637,127.99655 0 0 0 -128,-127.98915 z m -5.2681,12.30531 0,19.65113 a 5.2686904,5.268286 0 1 0 10.5362,0 l 0,-19.59034 a 115.89961,115.89071 0 0 1 48.01027,12.81938 l -9.81606,16.99769 a 5.2686904,5.268286 0 1 0 9.11638,5.26726 l 9.81606,-16.97543 a 115.89961,115.89071 0 0 1 35.23084,35.08325 L 571.09171,481.63 a 5.2686904,5.268286 0 1 0 5.26816,9.11498 l 17.0598,-9.83588 a 115.89961,115.89071 0 0 1 8.86947,23.06728 l -107.00962,16.87392 -42.92728,-51.60866 26.40256,70.00364 c 0,0 0.37622,0.80071 1.13182,1.87338 1.42911,2.47864 3.32531,3.96388 5.32994,4.73255 l 0.0434,0 c 2.24192,1.12696 5.05713,1.51564 8.4167,0.34743 0.61217,-0.152 1.39936,-0.37458 1.39936,-0.37458 L 602.312,504.07409 a 115.89961,115.89071 0 0 1 3.9511,24.85597 l -19.67327,0 a 5.2686904,5.268286 0 1 0 0,10.53616 l 19.59097,0 a 115.89961,115.89071 0 0 1 -12.79995,48.00686 l -17.0187,-9.8158 a 5.2686904,5.268286 0 0 0 -3.02515,-0.7209 5.2686904,5.268286 0 0 0 -2.24301,9.85651 l 16.9775,9.79462 a 115.89961,115.89071 0 0 1 -35.06618,35.24881 l -9.87779,-17.07966 a 5.2686904,5.268286 0 0 0 -4.79486,-2.6947 5.2686904,5.268286 0 0 0 -4.32163,7.96252 l 9.85738,17.03514 a 115.89961,115.89071 0 0 1 -48.05148,12.84001 l 0,-19.65168 a 5.2686904,5.268286 0 0 0 -5.3504,-5.34978 5.2686904,5.268286 0 0 0 -5.18591,5.34978 l 0,19.56916 A 115.89961,115.89071 0 0 1 437.27041,637.0189 l 9.816,-16.99768 a 5.2686904,5.268286 0 0 0 -4.48612,-7.98369 5.2686904,5.268286 0 0 0 -4.63031,2.71642 l -9.81601,16.97543 a 115.89961,115.89071 0 0 1 -35.23089,-35.08325 l 17.08048,-9.85704 a 5.2686904,5.268286 0 0 0 -2.40783,-9.8766 5.2686904,5.268286 0 0 0 -0.53475,0 5.2686904,5.268286 0 0 0 -2.32536,0.73827 l -17.0598,9.83589 a 115.89961,115.89071 0 0 1 -12.84116,-48.02749 l 19.67333,0 a 5.2686904,5.268286 0 1 0 0,-10.53507 l -19.59102,0 a 115.89961,115.89071 0 0 1 12.79989,-48.0063 l 17.01876,9.81524 a 5.2686904,5.268286 0 1 0 5.2681,-9.11606 l -16.97744,-9.81416 a 115.89961,115.89071 0 0 1 35.06623,-35.22928 l 9.87779,17.07912 a 5.2686904,5.268286 0 1 0 9.11638,-5.26781 l -9.85726,-17.03732 a 115.89961,115.89071 0 0 1 48.05147,-12.84054 z"
+       style="color:#000000;display:inline;overflow:visible;visibility:visible;fill:#808080;fill-opacity:1;fill-rule:nonzero;stroke:none;stroke-width:1;marker:none;enable-background:accumulate" />
+  </g>
+</svg>

@@ -1,6 +1,16 @@
 const {Climate, MonitorEverythingRequest, SetLightsRequest, SetManyRequest} = require('codegen/maison_pb.js');
 const {MaisonClient} = require('codegen/maison_grpc_web_pb.js');
 
+function find_climate_zone(e) {
+    while (e.className.substr(0, 8) != "climate-") {
+        e = e.parentNode;
+        if (e === null) {
+            return null;
+        }
+    }
+    return e.className.substr(8);
+}
+
 class Maison {
     constructor (api) {
         this.api = api;
@@ -11,11 +21,39 @@ class Maison {
         this.garden_lights_refresh = null;
     }
 
+    mkcolder = (z) => {
+        return () => {
+            console.log("colder zone " + z);
+        };
+    }
+
+    mkwarmer = (z) => {
+        return () => {
+            console.log("warmer zone " + z);
+        };
+    }
+
     run = () => {
         var top = this;
         var req = new MonitorEverythingRequest();
         if (document.getElementsByClassName("livetemp").length > 0) {
             req.setWantLiveTemperatures(true);
+        }
+        var colder_els = document.getElementsByClassName("colder");
+        for (var i = 0; i < colder_els.length; i++) {
+            var z = find_climate_zone(colder_els[i]);
+            if (z === null) {
+                continue;
+            }
+            colder_els[i].addEventListener('click', this.mkcolder(z));
+        }
+        var warmer_els = document.getElementsByClassName("warmer");
+        for (var i = 0; i < warmer_els.length; i++) {
+            var z = find_climate_zone(warmer_els[i]);
+            if (z === null) {
+                continue;
+            }
+            warmer_els[i].addEventListener('click', this.mkwarmer(z));
         }
         var kitchen_lights_els = document.getElementsByClassName("kitchen_lights");
         for (var i = 0; i < kitchen_lights_els.length; i++) {
