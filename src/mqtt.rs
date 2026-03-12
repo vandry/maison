@@ -2,6 +2,7 @@ use backoff::backoff::Backoff;
 use comprehensive::health::{HealthReporter, HealthSignaller};
 use comprehensive::v1::{AssemblyRuntime, Resource, resource};
 use futures::Stream;
+use futures::future::Either;
 use pin_project_lite::pin_project;
 use rumqttc::Event::Incoming;
 use rumqttc::Packet::{ConnAck, Publish};
@@ -11,9 +12,10 @@ use std::pin::{Pin, pin};
 use std::sync::{Arc, Mutex, Weak};
 use std::task::{Context, Poll};
 use std::time::Duration;
+use tokio::sync::Notify;
 use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender, unbounded_channel};
 use tokio::time::sleep;
-use tracing::error;
+use tracing::{error, info};
 use weak_table::WeakValueHashMap;
 
 #[derive(Debug)]
@@ -114,6 +116,7 @@ impl Mqtt {
         &self,
         mut eventloop: EventLoop,
         health_signaller: HealthSignaller,
+        resub: &Notify,
     ) -> Result<(), Box<dyn std::error::Error>> {
         let mut backoff = crate::new_backoff();
         let mut healthy = false;
@@ -135,6 +138,7 @@ impl Mqtt {
                 Ok(rumqttc::Event::Outgoing(_)) => true,
                 Err(error) => {
                     error!("MQTT client error: {:?}", error);
+                    resub.notify_waiters();
                     false
                 }
             };
@@ -159,10 +163,31 @@ impl Mqtt {
     async fn change_subscriptions(
         &self,
         mut rx: UnboundedReceiver<SubUnsub>,
+        resub: &Notify,
     ) -> Result<(), Box<dyn std::error::Error>> {
-        while let Some(sub_unsub) = rx.recv().await {
-            match sub_unsub {
-                SubUnsub::Sub(w) => {
+        loop {
+            let f1 = pin!(resub.notified());
+            let f2 = pin!(rx.recv());
+            match futures::future::select(f1, f2).await {
+                Either::Left(((), _)) => {
+                    if let Some(resubscribes) = self.topics.lock().ok().map(|topics| {
+                        topics
+                            .keys()
+                            .map(|topic| {
+                                rumqttc::SubscribeFilter::new(topic.clone(), QoS::AtMostOnce)
+                            })
+                            .collect::<Vec<_>>()
+                    }) {
+                        info!(
+                            "MQTT connection may have dropped. Re-requesting subscriptions to {} topics",
+                            resubscribes.len()
+                        );
+                        if let Err(e) = self.client.subscribe_many(resubscribes).await {
+                            error!("resubscribe: {e}");
+                        }
+                    }
+                }
+                Either::Right((Some(SubUnsub::Sub(w)), _)) => {
                     if let Some(s) = w.upgrade()
                         && let Some(c) = s.cancel.as_ref()
                         && self.topics.lock().unwrap().contains_key(&c.topic)
@@ -174,12 +199,15 @@ impl Mqtt {
                         error!("Error unsubscribing to {}: {e}", c.topic);
                     }
                 }
-                SubUnsub::Unsub(topic) => {
+                Either::Right((Some(SubUnsub::Unsub(topic)), _)) => {
                     if !self.topics.lock().unwrap().contains_key(&topic)
                         && let Err(e) = self.client.unsubscribe(topic).await
                     {
                         error!("Error unsubscribing: {e}");
                     }
+                }
+                Either::Right((None, _)) => {
+                    break;
                 }
             }
         }
@@ -217,9 +245,10 @@ impl Resource for Mqtt {
         });
         let shared2 = Arc::clone(&shared);
         let shared3 = Arc::clone(&shared);
+        let resub = Notify::new();
         runtime.set_task(async move {
-            let l = pin!(shared2.run(eventloop, health_signaller));
-            let u = pin!(shared3.change_subscriptions(sub_unsub_rx));
+            let l = pin!(shared2.run(eventloop, health_signaller, &resub));
+            let u = pin!(shared3.change_subscriptions(sub_unsub_rx, &resub));
             futures::future::select(l, u).await.factor_first().0
         });
         Ok(shared)
