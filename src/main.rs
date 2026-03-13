@@ -1,5 +1,8 @@
+use protobuf::proto;
+use protobuf_well_known_types::Timestamp;
 use std::marker::PhantomData;
 use std::sync::Arc;
+use std::time::{Duration, SystemTime};
 
 mod api;
 mod autogarden;
@@ -20,6 +23,17 @@ fn new_backoff() -> backoff::ExponentialBackoff {
     backoff::ExponentialBackoffBuilder::new()
         .with_max_elapsed_time(None) // Never completely give up.
         .build()
+}
+
+fn after_now(d: Duration) -> Option<Timestamp> {
+    let tt = SystemTime::now()
+        .checked_add(d)?
+        .duration_since(std::time::UNIX_EPOCH)
+        .ok()?;
+    Some(proto!(Timestamp {
+        seconds: tt.as_secs().try_into().ok()?,
+        nanos: tt.subsec_nanos().try_into().ok()?,
+    }))
 }
 
 #[tokio::main]

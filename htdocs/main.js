@@ -11,6 +11,16 @@ function find_climate_zone(e) {
     return e.className.substr(8);
 }
 
+function get_timer(v, server_now, my_now) {
+    var seconds = v.getSeconds() - server_now.getSeconds();
+    var nanos = v.getNanos() - server_now.getNanos();
+    if (nanos < 0) {
+        nanos += 1000000000;
+        seconds -= 1;
+    }
+    return my_now + (seconds * 1000) + (nanos / 1000000);
+}
+
 class Maison {
     constructor (api) {
         this.api = api;
@@ -19,6 +29,8 @@ class Maison {
         this.garden_lights = null;
         this.garden_lights_until = null;
         this.garden_lights_refresh = null;
+        this.hot_water_override_until = null;
+        this.hot_water_override_refresh = null;
     }
 
     mkcolder = (z) => {
@@ -31,6 +43,26 @@ class Maison {
         return () => {
             console.log("warmer zone " + z);
         };
+    }
+
+    install_react_hot_water = (cl) => {
+        var els = document.getElementsByClassName(cl);
+        var top = this;
+        for (var i = 0; i < els.length; i++) {
+            els[i].addEventListener('click', (e) => {
+                var req = new SetLightsRequest();
+                if (e.target.parentNode.className === "light_on") {
+                    req.setDurationMs(0);
+                } else {
+                    req.setDurationMs(7200000);
+                }
+                top.api.setHotWater(req, {}, (err, response) => {
+                    if (err) {
+                        console.log(err.code + " " + err.message);
+                    }
+                });
+            });
+        }
     }
 
     run = () => {
@@ -55,6 +87,8 @@ class Maison {
             }
             warmer_els[i].addEventListener('click', this.mkwarmer(z));
         }
+        this.install_react_hot_water("hot_water");
+        this.install_react_hot_water("hot_water_override");
         var kitchen_lights_els = document.getElementsByClassName("kitchen_lights");
         for (var i = 0; i < kitchen_lights_els.length; i++) {
             req.setWantKitchenCeiling(true);
@@ -159,7 +193,11 @@ class Maison {
                 });
             });
         }
-        if (document.getElementsByClassName("garden_lights_timer").length > 0) {
+        if (
+            (document.getElementsByClassName("garden_lights_timer").length > 0) ||
+            (document.getElementsByClassName("hot_water_override").length > 0)
+            (document.getElementsByClassName("hot_water_timer").length > 0)
+        ) {
             req.setWantMaison(true);
         }
         this.subscribe(() => {
@@ -380,21 +418,26 @@ class Maison {
 
     accept_maison = (response) => {
         var countdown = null;
+        var now = Date.now();
         if ((response !== null) && response.hasGardenLightUntil()) {
-            var seconds = response.getGardenLightUntil().getSeconds() - response.getNow().getSeconds();
-            var nanos = response.getGardenLightUntil().getNanos() - response.getNow().getNanos();
-            if (nanos < 0) {
-                nanos += 1000000000;
-                seconds -= 1;
-            }
-            this.garden_lights_until = Date.now() + (seconds * 1000) + (nanos / 1000000);
+            this.garden_lights_until = get_timer(response.getGardenLightUntil(), response.getNow(), now);
         } else {
             this.garden_lights_until = null;
         }
+        if ((response !== null) && response.hasHotWaterOverrideUntil()) {
+            this.hot_water_override_until = get_timer(response.getHotWaterOverrideUntil(), response.getNow(), now);
+        } else {
+            this.hot_water_override_until = null;
+        }
         this.garden_lights_update();
+        this.hot_water_update();
         if ((this.garden_lights_until !== null) && (this.garden_lights_refresh === null)) {
             var top = this;
             this.garden_lights_refresh = setInterval(() => { top.garden_lights_update() }, 500);
+        }
+        if ((this.hot_water_override_until !== null) && (this.hot_water_override_refresh === null)) {
+            var top = this;
+            this.hot_water_override_refresh = setInterval(() => { top.hot_water_update() }, 30000);
         }
     }
 
@@ -433,6 +476,53 @@ class Maison {
         var els = document.getElementsByClassName("garden_lights_timer");
         for (var i = 0; i < els.length; i++) {
             els[i].textContent = countdown;
+        }
+    }
+
+    hot_water_update = () => {
+        var v = this.hot_water_override_until;
+        var countdown = "";
+        if (v === null) {
+            if (this.hot_water_override_refresh !== null) {
+                clearInterval(this.hot_water_override_refresh);
+                this.hot_water_override_refresh = null;
+                this.hot_water_override_until = null;
+            }
+        } else {
+            var remaining = v - Date.now();
+            if (remaining < 0) {
+                if (this.hot_water_override_refresh !== null) {
+                    clearInterval(this.hot_water_override_refresh);
+                    this.hot_water_override_refresh = null;
+                    this.hot_water_override_refresh = null;
+                }
+                v = null;
+                this.hot_water_override_until = null;
+            } else {
+                remaining -= remaining % 60000;
+                if (remaining < 3600000) {
+                    countdown = (remaining / 60000).toFixed(0) + "min.";
+                } else {
+                    var hm = remaining % 3600000;
+                    var h = (remaining - hm) / 3600000;
+                    if (hm < 600000) {
+                        countdown = h + "h0" + (hm / 60000).toFixed(0);
+                    } else {
+                        countdown = h + "h" + (hm / 60000).toFixed(0);
+                    }
+                }
+            }
+        }
+        var els1 = document.getElementsByClassName("hot_water_timer");
+        for (var i = 0; i < els1.length; i++) {
+            els1[i].textContent = countdown;
+        }
+        var els2 = document.getElementsByClassName("hot_water_override");
+        for (var i = 0; i < els2.length; i++) {
+            var spans = els2[i].getElementsByTagName("span");
+            for (var j = 0; j < spans.length; j++) {
+                spans[j].className = (v === null) ? "light_off" : "light_on";
+            }
         }
     }
 }

@@ -48,6 +48,14 @@
     .part1 > table td {
         font-size: 3vw;
     }
+
+    .hot_water_timer {
+        font-size: 3vw;
+    }
+
+    .heating_timer {
+        font-size: 3vw;
+    }
 }
 
 @media (orientation: portrait) {
@@ -67,6 +75,14 @@
     }
 
     .part1 > table td {
+        font-size: 6vw;
+    }
+
+    .hot_water_timer {
+        font-size: 6vw;
+    }
+
+    .heating_timer {
         font-size: 6vw;
     }
 }
@@ -250,4 +266,14 @@ img {
     right: 0;
     max-height: 5%;
     max-width: 5%;
+}
+
+.hot_water_timer {
+    display: flex;
+    align-items: center;
+}
+
+.heating_timer {
+    display: flex;
+    align-items: center;
 }

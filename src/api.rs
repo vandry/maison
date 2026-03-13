@@ -1,9 +1,10 @@
 use comprehensive::v1::{AssemblyRuntime, Resource, resource};
 use futures::{FutureExt, Stream, StreamExt};
 use merge_streams::MergeStreams;
+use protobuf_well_known_types::TimestampView;
 use std::pin::Pin;
 use std::sync::Arc;
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tonic::Status;
 
 use crate::mqtt::Mqtt;
@@ -86,16 +87,19 @@ fn now_timestamp() -> Option<prost_types::Timestamp> {
     })
 }
 
+fn ts_to_ts(ts: protobuf::Optional<TimestampView<'_>>) -> Option<prost_types::Timestamp> {
+    ts.into_option().map(|ts| prost_types::Timestamp {
+        seconds: ts.seconds(),
+        nanos: ts.nanos(),
+    })
+}
+
 impl From<PersistentStateView<'_>> for MaisonState {
     fn from(s: PersistentStateView<'_>) -> MaisonState {
         MaisonState {
             now: now_timestamp(),
-            garden_light_until: s.garden_light_until_opt().into_option().map(|ts| {
-                prost_types::Timestamp {
-                    seconds: ts.seconds(),
-                    nanos: ts.nanos(),
-                }
-            }),
+            garden_light_until: ts_to_ts(s.garden_light_until_opt()),
+            hot_water_override_until: ts_to_ts(s.hot_water_override_until_opt()),
         }
     }
 }
@@ -236,6 +240,26 @@ impl crate::pb::maison_server::Maison for Api {
         r1?;
         r2?;
         r3?;
+        Ok(tonic::Response::new(()))
+    }
+
+    async fn set_hot_water(
+        &self,
+        req: tonic::Request<crate::pb::SetLightsRequest>,
+    ) -> Result<tonic::Response<()>, Status> {
+        match req.into_inner().duration_ms {
+            Some(duration_ms) => {
+                let end = crate::after_now(Duration::from_millis(duration_ms))
+                    .ok_or_else(|| tonic::Status::out_of_range("silly diration"))?;
+                self.state
+                    .write()
+                    .as_mut()
+                    .set_hot_water_override_until(end);
+            }
+            None => {
+                self.state.write().as_mut().clear_hot_water_override_until();
+            }
+        }
         Ok(tonic::Response::new(()))
     }
 }

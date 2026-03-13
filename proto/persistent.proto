@@ -6,4 +6,5 @@ import "google/protobuf/timestamp.proto";
 
 message PersistentState {
   optional google.protobuf.Timestamp garden_light_until = 1;
+  optional google.protobuf.Timestamp hot_water_override_until = 3;
 }

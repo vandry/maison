@@ -2,8 +2,6 @@ use backoff::backoff::Backoff;
 use comprehensive::v1::{AssemblyRuntime, Resource, resource};
 use futures::StreamExt;
 use futures::future::Either;
-use protobuf::proto;
-use protobuf_well_known_types::Timestamp;
 use std::pin::pin;
 use std::sync::Arc;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
@@ -42,24 +40,13 @@ impl Resource for Garden {
     }
 }
 
-fn after_now(d: Duration) -> Option<protobuf_well_known_types::Timestamp> {
-    let tt = SystemTime::now()
-        .checked_add(d)?
-        .duration_since(UNIX_EPOCH)
-        .ok()?;
-    Some(proto!(Timestamp {
-        seconds: tt.as_secs().try_into().ok()?,
-        nanos: tt.subsec_nanos().try_into().ok()?,
-    }))
-}
-
 impl Garden {
     pub async fn duration_ms(&self, maybe_duration_ms: Option<u64>) -> Result<(), tonic::Status> {
         match maybe_duration_ms {
             None => self.on().await,
             Some(0) => self.off().await,
             Some(duration_ms) => {
-                let end = after_now(Duration::from_millis(duration_ms))
+                let end = crate::after_now(Duration::from_millis(duration_ms))
                     .ok_or_else(|| tonic::Status::out_of_range("silly diration"))?;
                 self.state.write().as_mut().set_garden_light_until(end);
                 self.on().await
