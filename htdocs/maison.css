@@ -4,7 +4,6 @@
     height: 12%;
     left: 0;
     right: 0;
-    overflow: hidden;
     display: flex;
 }
 
@@ -67,6 +66,15 @@
     .clock {
         font-size: 2vw;
     }
+
+    .hot_water_timer_popup {
+        left: -50%;
+        width: 200%;
+    }
+
+    .hot_water_timer_popup span {
+        font-size: 1.5vw;
+    }
 }
 
 @media (orientation: portrait) {
@@ -103,6 +111,15 @@
 
     .part0 > div.clock {
         display: none;
+    }
+
+    .hot_water_timer_popup {
+        left: -300%;
+        width: 350%;
+    }
+
+    .hot_water_timer_popup span {
+        font-size: 3vw;
     }
 }
 
@@ -290,13 +307,37 @@ img {
 .hot_water_timer {
     display: flex;
     align-items: center;
+    justify-content: center;
 }
 
 .heating_timer {
     display: flex;
     align-items: center;
+    justify-content: center;
 }
 
 .clock {
     justify-content: right;
+}
+
+.hot_water_timer_popup {
+    display: none;
+    position: relative;
+    top: 20%;
+    aspect-ratio: 0.8;
+    border: 0.2em solid;
+    overflow: hidden;
+    z-index: 10;
+    background-color: white;
+    padding: 0.3em;
+}
+
+.hot_water_timer_popup span {
+    display: flex;
+    justify-content: center;
+}
+
+.hot_water_timer_popup .closer {
+    max-height: 20%;
+    max-width: 20%;
 }

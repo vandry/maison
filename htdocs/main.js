@@ -11,6 +11,47 @@ function find_climate_zone(e) {
     return e.className.substr(8);
 }
 
+function get_clock_angle(e) {
+    var x = (e.offsetX / e.target.width) - 0.5;
+    var y = (e.offsetY / e.target.height) - 0.5;
+    var slice = Math.round(Math.atan2(y, x) * 6 / Math.PI) + 3;
+    if (slice < 0) {
+        return slice + 12;
+    }
+    return slice;
+}
+
+class ClockSelector {
+    constructor (hel, mel, api) {
+        this.api = api;
+        this.hel = hel;
+        this.mel = mel;
+        this.hours = 0;
+    }
+
+    run = () => {
+        this.mel.style.display = "none";
+        var top = this;
+        this.hel.addEventListener('click', (e) => {
+            top.hours = get_clock_angle(e);
+            top.hel.style.display = "none";
+            top.mel.style.display = "inherit";
+        });
+        this.mel.addEventListener('click', (e) => {
+            var req = new SetLightsRequest();
+            req.setDurationMs(top.hours * 3600000 + get_clock_angle(e) * 300000);
+            this.hel.style.display = "inherit";
+            this.mel.style.display = "none";
+            this.hel.parentNode.style.display = "none";
+            top.api.setHotWater(req, {}, (err, response) => {
+                if (err) {
+                    console.log(err.code + " " + err.message);
+                }
+            });
+        });
+    }
+}
+
 class Maison {
     constructor (api) {
         this.api = api;
@@ -185,10 +226,19 @@ class Maison {
                 });
             });
         }
+        var hot_water_timer_els = document.getElementsByClassName("hot_water_timer");
+        for (var i = 0; i < hot_water_timer_els.length; i++) {
+            req.setWantMaison(true);
+            hot_water_timer_els[i].addEventListener('click', () => {
+                var els = document.getElementsByClassName("hot_water_timer_popup");
+                for (var i = 0; i < els.length; i++) {
+                    els[i].style.display = "inherit";
+                }
+            });
+        }
         if (
             (document.getElementsByClassName("garden_lights_timer").length > 0) ||
             (document.getElementsByClassName("hot_water_override").length > 0) ||
-            (document.getElementsByClassName("hot_water_timer").length > 0) ||
             (document.getElementsByClassName("clock").length > 0)
         ) {
             req.setWantMaison(true);
@@ -244,6 +294,24 @@ class Maison {
                     els[i].style.display = "inherit";
                 }
             });
+        }
+        var hot_water_timer_popup_els = document.getElementsByClassName("hot_water_timer_popup");
+        for (var i = 0; i < hot_water_timer_popup_els.length; i++) {
+            var hours_el = null;
+            var minutes_el = null;
+            for (var j = 0; j < hot_water_timer_popup_els[i].childNodes.length; j++) {
+                var el = hot_water_timer_popup_els[i].childNodes[j];
+                if (el.tagName === "IMG") {
+                    if (hours_el === null) {
+                        hours_el = el;
+                    } else {
+                        minutes_el = el;
+                    }
+                }
+            }
+            if ((hours_el !== null) && (minutes_el !== null)) {
+                new ClockSelector(hours_el, minutes_el, this.api).run();
+            }
         }
     }
 
