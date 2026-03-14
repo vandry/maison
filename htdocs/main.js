@@ -11,16 +11,6 @@ function find_climate_zone(e) {
     return e.className.substr(8);
 }
 
-function get_timer(v, server_now, my_now) {
-    var seconds = v.getSeconds() - server_now.getSeconds();
-    var nanos = v.getNanos() - server_now.getNanos();
-    if (nanos < 0) {
-        nanos += 1000000000;
-        seconds -= 1;
-    }
-    return my_now + (seconds * 1000) + (nanos / 1000000);
-}
-
 class Maison {
     constructor (api) {
         this.api = api;
@@ -31,6 +21,8 @@ class Maison {
         this.garden_lights_refresh = null;
         this.hot_water_override_until = null;
         this.hot_water_override_refresh = null;
+        this.clock_offset = null;
+        this.clock_refresh = null;
     }
 
     mkcolder = (z) => {
@@ -195,8 +187,9 @@ class Maison {
         }
         if (
             (document.getElementsByClassName("garden_lights_timer").length > 0) ||
-            (document.getElementsByClassName("hot_water_override").length > 0)
-            (document.getElementsByClassName("hot_water_timer").length > 0)
+            (document.getElementsByClassName("hot_water_override").length > 0) ||
+            (document.getElementsByClassName("hot_water_timer").length > 0) ||
+            (document.getElementsByClassName("clock").length > 0)
         ) {
             req.setWantMaison(true);
         }
@@ -416,18 +409,38 @@ class Maison {
         );
     }
 
+    get_timer = (v) => {
+        var ms = v.getSeconds() * 1000 + v.getNanos() / 1e6;
+        return ms + this.clock_offset;
+    }
+
     accept_maison = (response) => {
-        var countdown = null;
-        var now = Date.now();
-        if ((response !== null) && response.hasGardenLightUntil()) {
-            this.garden_lights_until = get_timer(response.getGardenLightUntil(), response.getNow(), now);
-        } else {
+        if (response === null) {
             this.garden_lights_until = null;
-        }
-        if ((response !== null) && response.hasHotWaterOverrideUntil()) {
-            this.hot_water_override_until = get_timer(response.getHotWaterOverrideUntil(), response.getNow(), now);
-        } else {
             this.hot_water_override_until = null;
+            this.clock_offset = null;
+            if (this.clock_refresh !== null) {
+                clearTimeout(this.clock_refresh);
+                this.clock_refresh = null;
+                this.update_clock();
+            }
+        } else {
+            var now = Date.now();
+            var server_now = response.getNow().getSeconds() * 1000 + response.getNow().getNanos() / 1e6;
+            this.clock_offset = server_now - now;
+            if (this.clock_refresh === null) {
+                this.update_clock();
+            }
+            if (response.hasGardenLightUntil()) {
+                this.garden_lights_until = this.get_timer(response.getGardenLightUntil());
+            } else {
+                this.garden_lights_until = null;
+            }
+            if (response.hasHotWaterOverrideUntil()) {
+                this.hot_water_override_until = this.get_timer(response.getHotWaterOverrideUntil());
+            } else {
+                this.hot_water_override_until = null;
+            }
         }
         this.garden_lights_update();
         this.hot_water_update();
@@ -438,6 +451,29 @@ class Maison {
         if ((this.hot_water_override_until !== null) && (this.hot_water_override_refresh === null)) {
             var top = this;
             this.hot_water_override_refresh = setInterval(() => { top.hot_water_update() }, 30000);
+        }
+    }
+
+    update_clock = () => {
+        var els = document.getElementsByClassName("clock");
+        if (els.length < 1) {
+            return;
+        }
+        var t = "";
+        if (this.clock_offset !== null) {
+            var dnow = new Date();
+            var now = dnow.getTime() + this.clock_offset;
+            var tzoffset_now = now - dnow.getTimezoneOffset() * 60000;
+            var hack = new Date(tzoffset_now);
+            var s = hack.toISOString();
+            t = s.substr(0, 10) + " " + s.substr(11, 5);
+            var top = this;
+            this.clock_refresh = setTimeout(() => {
+                top.update_clock();
+            }, 60000 - (now % 60000));
+        }
+        for (var i = 0; i < els.length; i++) {
+            els[i].textContent = t;
         }
     }
 

@@ -10,10 +10,13 @@
 
 .part0 > div {
     height: 100%;
-    width: 50%;
     position: relative;
     align-items: center;
     display: flex;
+    border-left: 0.1em solid black;
+    border-right: 0.1em solid black;
+    padding-left: 0.2em;
+    padding-right: 0.2em;
 }
 
 .part0 > div > div {
@@ -30,6 +33,10 @@
 }
 
 @media (orientation: landscape) {
+    .part0 > div {
+        width: 33%;
+    }
+
     .part1 {
         position: absolute;
         top: 12%;
@@ -56,9 +63,17 @@
     .heating_timer {
         font-size: 3vw;
     }
+
+    .clock {
+        font-size: 2vw;
+    }
 }
 
 @media (orientation: portrait) {
+    .part0 > div {
+        width: 50%;
+    }
+
     .part1 {
         position: absolute;
         top: 12%;
@@ -84,6 +99,10 @@
 
     .heating_timer {
         font-size: 6vw;
+    }
+
+    .part0 > div.clock {
+        display: none;
     }
 }
 
@@ -276,4 +295,8 @@ img {
 .heating_timer {
     display: flex;
     align-items: center;
+}
+
+.clock {
+    justify-content: right;
 }
