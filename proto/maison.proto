@@ -21,10 +21,17 @@ message SimpleSwitch {
   optional bool state = 1;
 }
 
+message SetPoint {
+  optional string zone = 1;
+  optional double setpoint = 2;
+}
+
 message MaisonState {
   optional google.protobuf.Timestamp now = 2;
   optional google.protobuf.Timestamp garden_light_until = 1;
   optional google.protobuf.Timestamp hot_water_override_until = 3;
+  optional google.protobuf.Timestamp heating_override_until = 4;
+  repeated SetPoint heating_override = 5;
 }
 
 message MonitorEverythingRequest {
@@ -60,9 +67,19 @@ message SetManyRequest {
   optional bool kitchen_under_stairs = 3;
 }
 
+message IncrementSetPointRequest {
+  optional string zone = 1;
+  optional double starting_value_if_unset = 2;
+  optional double increment = 3;
+  optional uint64 duration_ms_if_not_already_set = 4;
+}
+
 service Maison {
   rpc MonitorEverything(MonitorEverythingRequest) returns (stream MonitorResponse) {}
   rpc SetGardenLights(SetLightsRequest) returns (google.protobuf.Empty) {}
   rpc SetMany(SetManyRequest) returns (google.protobuf.Empty) {}
   rpc SetHotWater(SetLightsRequest) returns (google.protobuf.Empty) {}
+  rpc SetHeating(SetLightsRequest) returns (google.protobuf.Empty) {}
+  rpc CancelHeatingOverride(google.protobuf.Empty) returns (google.protobuf.Empty) {}
+  rpc IncrementSetPoint(IncrementSetPointRequest) returns (google.protobuf.Empty) {}
 }

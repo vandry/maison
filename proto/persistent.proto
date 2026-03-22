@@ -4,7 +4,14 @@ package maison;
 
 import "google/protobuf/timestamp.proto";
 
+message SetPoint2 {
+  optional string zone = 1;
+  optional double setpoint = 2;
+}
+
 message PersistentState {
   optional google.protobuf.Timestamp garden_light_until = 1;
   optional google.protobuf.Timestamp hot_water_override_until = 3;
+  optional google.protobuf.Timestamp heating_override_until = 4;
+  repeated SetPoint2 heating_override = 5;
 }

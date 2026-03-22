@@ -75,6 +75,15 @@
     .hot_water_timer_popup span {
         font-size: 1.5vw;
     }
+
+    .heating_timer_popup {
+        left: -50%;
+        width: 200%;
+    }
+
+    .heating_timer_popup span {
+        font-size: 1.5vw;
+    }
 }
 
 @media (orientation: portrait) {
@@ -119,6 +128,15 @@
     }
 
     .hot_water_timer_popup span {
+        font-size: 3vw;
+    }
+
+    .heating_timer_popup {
+        left: -300%;
+        width: 350%;
+    }
+
+    .heating_timer_popup span {
         font-size: 3vw;
     }
 }
@@ -338,6 +356,28 @@ img {
 }
 
 .hot_water_timer_popup .closer {
+    max-height: 20%;
+    max-width: 20%;
+}
+
+.heating_timer_popup {
+    display: none;
+    position: relative;
+    top: 20%;
+    aspect-ratio: 0.8;
+    border: 0.2em solid;
+    overflow: hidden;
+    z-index: 10;
+    background-color: white;
+    padding: 0.3em;
+}
+
+.heating_timer_popup span {
+    display: flex;
+    justify-content: center;
+}
+
+.heating_timer_popup .closer {
     max-height: 20%;
     max-width: 20%;
 }

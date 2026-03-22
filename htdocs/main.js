@@ -1,4 +1,4 @@
-const {Climate, MonitorEverythingRequest, SetLightsRequest, SetManyRequest} = require('codegen/maison_pb.js');
+const {Climate, IncrementSetPointRequest, MonitorEverythingRequest, SetLightsRequest, SetManyRequest} = require('codegen/maison_pb.js');
 const {MaisonClient} = require('codegen/maison_grpc_web_pb.js');
 
 function find_climate_zone(e) {
@@ -22,8 +22,8 @@ function get_clock_angle(e) {
 }
 
 class ClockSelector {
-    constructor (hel, mel, api) {
-        this.api = api;
+    constructor (hel, mel, actuator) {
+        this.actuator = actuator;
         this.hel = hel;
         this.mel = mel;
         this.hours = 0;
@@ -40,15 +40,36 @@ class ClockSelector {
         this.mel.addEventListener('click', (e) => {
             var req = new SetLightsRequest();
             req.setDurationMs(top.hours * 3600000 + get_clock_angle(e) * 300000);
-            this.hel.style.display = "inherit";
-            this.mel.style.display = "none";
-            this.hel.parentNode.style.display = "none";
-            top.api.setHotWater(req, {}, (err, response) => {
+            top.hel.style.display = "inherit";
+            top.mel.style.display = "none";
+            top.hel.parentNode.style.display = "none";
+            top.actuator(req, {}, (err, response) => {
                 if (err) {
                     console.log(err.code + " " + err.message);
                 }
             });
         });
+    }
+}
+
+function install_timer_adjust(cl, actuator) {
+    var els = document.getElementsByClassName(cl);
+    for (var i = 0; i < els.length; i++) {
+        var hours_el = null;
+        var minutes_el = null;
+        for (var j = 0; j < els[i].childNodes.length; j++) {
+            var el = els[i].childNodes[j];
+            if (el.tagName === "IMG") {
+                if (hours_el === null) {
+                    hours_el = el;
+                } else {
+                    minutes_el = el;
+                }
+            }
+        }
+        if ((hours_el !== null) && (minutes_el !== null)) {
+            new ClockSelector(hours_el, minutes_el, actuator).run();
+        }
     }
 }
 
@@ -60,21 +81,49 @@ class Maison {
         this.garden_lights = null;
         this.garden_lights_until = null;
         this.garden_lights_refresh = null;
+        this.heating_override_until = null;
+        this.heating_override_refresh = null;
         this.hot_water_override_until = null;
         this.hot_water_override_refresh = null;
         this.clock_offset = null;
         this.clock_refresh = null;
+        this.livetemp = {};
+        this.setpoint = {};
+    }
+
+    override_set_point_request = (zone) => {
+        var req = new IncrementSetPointRequest();
+        req.setZone(zone);
+        if (this.livetemp.hasOwnProperty(zone)) {
+            req.setStartingValueIfUnset(Math.round(this.livetemp[zone] * 2) / 2);
+        }
+        req.setDurationMsIfNotAlreadySet(7200000);
+        return req;
     }
 
     mkcolder = (z) => {
+        var top = this;
         return () => {
-            console.log("colder zone " + z);
+            var req = top.override_set_point_request(z);
+            req.setIncrement(-0.5);
+            top.api.incrementSetPoint(req, {}, (err, response) => {
+                if (err) {
+                    console.log(err.code + " " + err.message);
+                }
+            });
         };
     }
 
     mkwarmer = (z) => {
+        var top = this;
         return () => {
-            console.log("warmer zone " + z);
+            var req = top.override_set_point_request(z);
+            req.setIncrement(0.5);
+            top.api.incrementSetPoint(req, {}, (err, response) => {
+                if (err) {
+                    console.log(err.code + " " + err.message);
+                }
+            });
         };
     }
 
@@ -90,6 +139,23 @@ class Maison {
                     req.setDurationMs(7200000);
                 }
                 top.api.setHotWater(req, {}, (err, response) => {
+                    if (err) {
+                        console.log(err.code + " " + err.message);
+                    }
+                });
+            });
+        }
+    }
+
+    install_react_heating = (cl) => {
+        var els = document.getElementsByClassName(cl);
+        var top = this;
+        for (var i = 0; i < els.length; i++) {
+            els[i].addEventListener('click', (e) => {
+                if (e.target.parentNode.className !== "light_on") {
+                    return;
+                }
+                top.api.cancelHeatingOverride(new proto.google.protobuf.Empty(), {}, (err, response) => {
                     if (err) {
                         console.log(err.code + " " + err.message);
                     }
@@ -122,6 +188,7 @@ class Maison {
         }
         this.install_react_hot_water("hot_water");
         this.install_react_hot_water("hot_water_override");
+        this.install_react_heating("heating_override");
         var kitchen_lights_els = document.getElementsByClassName("kitchen_lights");
         for (var i = 0; i < kitchen_lights_els.length; i++) {
             req.setWantKitchenCeiling(true);
@@ -236,8 +303,19 @@ class Maison {
                 }
             });
         }
+        var heating_timer_els = document.getElementsByClassName("heating_timer");
+        for (var i = 0; i < heating_timer_els.length; i++) {
+            req.setWantMaison(true);
+            heating_timer_els[i].addEventListener('click', () => {
+                var els = document.getElementsByClassName("heating_timer_popup");
+                for (var i = 0; i < els.length; i++) {
+                    els[i].style.display = "inherit";
+                }
+            });
+        }
         if (
             (document.getElementsByClassName("garden_lights_timer").length > 0) ||
+            (document.getElementsByClassName("heating_override").length > 0) ||
             (document.getElementsByClassName("hot_water_override").length > 0) ||
             (document.getElementsByClassName("clock").length > 0)
         ) {
@@ -295,24 +373,8 @@ class Maison {
                 }
             });
         }
-        var hot_water_timer_popup_els = document.getElementsByClassName("hot_water_timer_popup");
-        for (var i = 0; i < hot_water_timer_popup_els.length; i++) {
-            var hours_el = null;
-            var minutes_el = null;
-            for (var j = 0; j < hot_water_timer_popup_els[i].childNodes.length; j++) {
-                var el = hot_water_timer_popup_els[i].childNodes[j];
-                if (el.tagName === "IMG") {
-                    if (hours_el === null) {
-                        hours_el = el;
-                    } else {
-                        minutes_el = el;
-                    }
-                }
-            }
-            if ((hours_el !== null) && (minutes_el !== null)) {
-                new ClockSelector(hours_el, minutes_el, this.api).run();
-            }
-        }
+        install_timer_adjust("hot_water_timer_popup", (r, h, c) => { top.api.setHotWater(r, h, c); });
+        install_timer_adjust("heating_timer_popup", (r, h, c) => { top.api.setHeating(r, h, c); });
     }
 
     display_value = (staleness_key, value, lifetime, setter) => {
@@ -363,6 +425,15 @@ class Maison {
     }
 
     accept_livetemp = (response) => {
+        if (response === null) {
+            this.livetemp = {};
+        } else if (response.hasUnit()) {
+            if (response.hasTemperature()) {
+                this.livetemp[response.getUnit()] = response.getTemperature();
+            } else {
+                delete this.livetemp[response.getUnit()];
+            }
+        }
         var key = (response === null) ? 'temperatures' : ('climate-' + response.getUnit());
         this.display_value(
             key,
@@ -485,6 +556,7 @@ class Maison {
     accept_maison = (response) => {
         if (response === null) {
             this.garden_lights_until = null;
+            this.heating_override_until = null;
             this.hot_water_override_until = null;
             this.clock_offset = null;
             if (this.clock_refresh !== null) {
@@ -492,6 +564,7 @@ class Maison {
                 this.clock_refresh = null;
                 this.update_clock();
             }
+            this.setpoint = {};
         } else {
             var now = Date.now();
             var server_now = response.getNow().getSeconds() * 1000 + response.getNow().getNanos() / 1e6;
@@ -504,13 +577,28 @@ class Maison {
             } else {
                 this.garden_lights_until = null;
             }
+            if (response.hasHeatingOverrideUntil()) {
+                this.heating_override_until = this.get_timer(response.getHeatingOverrideUntil());
+            } else {
+                this.heating_override_until = null;
+            }
             if (response.hasHotWaterOverrideUntil()) {
                 this.hot_water_override_until = this.get_timer(response.getHotWaterOverrideUntil());
             } else {
                 this.hot_water_override_until = null;
             }
+            var setpoint = {};
+            var hol = response.getHeatingOverrideList();
+            for (var i = 0; i < hol.length; i++) {
+                var sp = hol[i];
+                if (sp.hasZone() && sp.hasSetpoint()) {
+                    setpoint[sp.getZone()] = sp.getSetpoint();
+                }
+            }
+            this.setpoint = setpoint;
         }
         this.garden_lights_update();
+        this.heating_update();
         this.hot_water_update();
         if ((this.garden_lights_until !== null) && (this.garden_lights_refresh === null)) {
             var top = this;
@@ -519,6 +607,10 @@ class Maison {
         if ((this.hot_water_override_until !== null) && (this.hot_water_override_refresh === null)) {
             var top = this;
             this.hot_water_override_refresh = setInterval(() => { top.hot_water_update() }, 30000);
+        }
+        if ((this.heating_override_until !== null) && (this.heating_override_refresh === null)) {
+            var top = this;
+            this.heating_override_refresh = setInterval(() => { top.heating_update() }, 30000);
         }
     }
 
@@ -626,6 +718,67 @@ class Maison {
             var spans = els2[i].getElementsByTagName("span");
             for (var j = 0; j < spans.length; j++) {
                 spans[j].className = (v === null) ? "light_off" : "light_on";
+            }
+        }
+    }
+
+    heating_update = () => {
+        var v = this.heating_override_until;
+        var countdown = "";
+        if (v === null) {
+            if (this.heating_override_refresh !== null) {
+                clearInterval(this.heating_override_refresh);
+                this.heating_override_refresh = null;
+                this.heating_override_until = null;
+                this.setpoint = {};
+            }
+        } else {
+            var remaining = v - Date.now();
+            if (remaining < 0) {
+                if (this.heating_override_refresh !== null) {
+                    clearInterval(this.heating_override_refresh);
+                    this.heating_override_refresh = null;
+                    this.heating_override_refresh = null;
+                }
+                v = null;
+                this.heating_override_until = null;
+                this.setpoint = {};
+            } else {
+                remaining -= remaining % 60000;
+                if (remaining < 3600000) {
+                    countdown = (remaining / 60000).toFixed(0) + "min.";
+                } else {
+                    var hm = remaining % 3600000;
+                    var h = (remaining - hm) / 3600000;
+                    if (hm < 600000) {
+                        countdown = h + "h0" + (hm / 60000).toFixed(0);
+                    } else {
+                        countdown = h + "h" + (hm / 60000).toFixed(0);
+                    }
+                }
+            }
+        }
+        var els1 = document.getElementsByClassName("heating_timer");
+        for (var i = 0; i < els1.length; i++) {
+            els1[i].textContent = countdown;
+        }
+        var els2 = document.getElementsByClassName("heating_override");
+        for (var i = 0; i < els2.length; i++) {
+            var spans = els2[i].getElementsByTagName("span");
+            for (var j = 0; j < spans.length; j++) {
+                spans[j].className = (v === null) ? "light_off" : "light_on";
+            }
+        }
+        var els3 = document.getElementsByClassName("setpoint");
+        for (var i = 0; i < els3.length; i++) {
+            var zone = find_climate_zone(els3[i]);
+            if (zone === null) {
+                continue;
+            }
+            if (this.setpoint.hasOwnProperty(zone)) {
+                els3[i].textContent = this.setpoint[zone].toFixed(1);
+            } else {
+                els3[i].textContent = "";
             }
         }
     }
