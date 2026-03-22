@@ -784,4 +784,4 @@ class Maison {
     }
 }
 
-new Maison(new MaisonClient(URL.parse(window.location).toString())).run();
+new Maison(new MaisonClient(window.location.origin)).run();

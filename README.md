@@ -12,6 +12,7 @@ server {
         proxy_pass http://maison/maison.Maison/;
         proxy_http_version 1.1;
         proxy_read_timeout 1800s;
+        proxy_buffering off;
     }
 }
 
