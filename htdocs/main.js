@@ -696,6 +696,9 @@ class Maison {
                 }
             }
         }
+        if (this.garden_lights === false) {
+            countdown = "";
+        }
         var els = document.getElementsByClassName("garden_lights_timer");
         for (var i = 0; i < els.length; i++) {
             els[i].textContent = countdown;

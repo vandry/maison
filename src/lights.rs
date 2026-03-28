@@ -1,6 +1,4 @@
-use backoff::backoff::Backoff;
 use comprehensive::v1::{AssemblyRuntime, Resource, resource};
-use futures::StreamExt;
 use futures::future::Either;
 use std::pin::pin;
 use std::sync::Arc;
@@ -28,12 +26,7 @@ impl Resource for Garden {
         let shared = Arc::new(Self { mqtt, state });
         let shared2 = Arc::clone(&shared);
         runtime.set_task(async move {
-            let f1 = pin!(shared.await_timer(state_rx));
-            let f2 = pin!(shared.cancel_timer_on_off());
-            match futures::future::select(f1, f2).await {
-                Either::Left((r, _)) => r?,
-                Either::Right((_, _)) => (),
-            }
+            let _ = shared.await_timer(state_rx).await;
             Err("exited unexpectedly".into())
         });
         Ok(shared2)
@@ -102,36 +95,6 @@ impl Garden {
                         rx.changed().await?
                     }
                 },
-            }
-        }
-    }
-
-    async fn cancel_timer_on_off(&self) -> Result<(), RecvError> {
-        let mut backoff = crate::new_backoff();
-        loop {
-            self.mqtt
-                .subscribe(String::from("zigbee/garden"))
-                .await
-                .into_stream()
-                .for_each(|m| {
-                    if matches!(
-                        m,
-                        crate::parse::Message::SimpleSwitch(crate::pb::SimpleSwitch {
-                            state: Some(false)
-                        })
-                    ) {
-                        let mut lock = self.state.write();
-                        if lock.as_view().has_garden_light_until() {
-                            lock.as_mut().clear_garden_light_until();
-                        }
-                    }
-                    backoff.reset();
-                    std::future::ready(())
-                })
-                .await;
-            tracing::warn!("subscribe to light stream ended");
-            if let Some(duration) = backoff.next_backoff() {
-                sleep(duration).await;
             }
         }
     }
