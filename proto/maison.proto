@@ -34,6 +34,11 @@ message MaisonState {
   repeated SetPoint heating_override = 5;
 }
 
+message HeatSchedule {
+  optional bool hot_water = 1;
+  repeated SetPoint heating = 2;
+}
+
 message MonitorEverythingRequest {
   optional bool want_live_temperatures = 1;
   optional bool want_kitchen_ceiling = 2;
@@ -42,6 +47,7 @@ message MonitorEverythingRequest {
   optional bool want_boiler = 5;
   optional bool want_garden_lights = 6;
   optional bool want_maison = 7;
+  optional bool want_heat_schedule = 8;
 }
 
 message MonitorResponse {
@@ -53,6 +59,7 @@ message MonitorResponse {
     Boiler boiler = 5;
     SimpleSwitch garden_lights = 6;
     MaisonState maison = 7;
+    HeatSchedule heat_schedule = 8;
   }
 }
 

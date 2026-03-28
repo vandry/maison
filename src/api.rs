@@ -18,6 +18,7 @@ pub struct Api {
     state: Arc<crate::state::State>,
     garden_lights: Arc<crate::lights::Garden>,
     autokitchen: Arc<crate::autokitchen::AutoKitchen>,
+    schedule: Arc<crate::schedule::Schedule>,
 }
 
 #[resource]
@@ -25,11 +26,12 @@ pub struct Api {
 #[proto_descriptor(crate::pb::FILE_DESCRIPTOR_SET)]
 impl Resource for Api {
     fn new(
-        (mqtt, state, garden_lights, autokitchen): (
+        (mqtt, state, garden_lights, autokitchen, schedule): (
             Arc<Mqtt>,
             Arc<crate::state::State>,
             Arc<crate::lights::Garden>,
             Arc<crate::autokitchen::AutoKitchen>,
+            Arc<crate::schedule::Schedule>,
         ),
         _: comprehensive::NoArgs,
         _: &mut AssemblyRuntime<'_>,
@@ -39,6 +41,7 @@ impl Resource for Api {
             state,
             garden_lights,
             autokitchen,
+            schedule,
         }))
     }
 }
@@ -70,6 +73,28 @@ impl Api {
                 .map_err(|e| tonic::Status::internal(e.to_string()))?;
         }
         Ok(())
+    }
+
+    fn maison_stream(&self) -> impl Stream<Item = Result<MonitorResponse, Status>> + 'static {
+        tokio_stream::wrappers::WatchStream::new(self.state.subscribe()).map(|snapshot| {
+            Ok(MonitorResponse {
+                message: Some(crate::pb::monitor_response::Message::Maison(
+                    snapshot.as_view().into(),
+                )),
+            })
+        })
+    }
+
+    fn heat_schedule_stream(
+        &self,
+    ) -> impl Stream<Item = Result<MonitorResponse, Status>> + 'static {
+        tokio_stream::wrappers::WatchStream::new(self.schedule.subscribe()).map(|snapshot| {
+            Ok(MonitorResponse {
+                message: Some(crate::pb::monitor_response::Message::HeatSchedule(
+                    (*snapshot).clone(),
+                )),
+            })
+        })
     }
 }
 
@@ -226,19 +251,21 @@ impl crate::pb::maison_server::Maison for Api {
         )
         .await
         .merge();
-        let stream: Self::MonitorEverythingStream = if req.want_maison.unwrap_or_default() {
-            Box::pin(futures::stream::select(
-                mqtt_stream,
-                tokio_stream::wrappers::WatchStream::new(self.state.subscribe()).map(|snapshot| {
-                    Ok(MonitorResponse {
-                        message: Some(crate::pb::monitor_response::Message::Maison(
-                            snapshot.as_view().into(),
-                        )),
-                    })
-                }),
-            ))
-        } else {
-            Box::pin(mqtt_stream)
+        let stream: Self::MonitorEverythingStream = match (
+            req.want_maison.unwrap_or_default(),
+            req.want_heat_schedule.unwrap_or_default(),
+        ) {
+            (false, false) => Box::pin(mqtt_stream),
+            (true, false) => Box::pin((mqtt_stream, self.maison_stream()).merge()),
+            (false, true) => Box::pin((mqtt_stream, self.heat_schedule_stream()).merge()),
+            (true, true) => Box::pin(
+                (
+                    mqtt_stream,
+                    self.maison_stream(),
+                    self.heat_schedule_stream(),
+                )
+                    .merge(),
+            ),
         };
         Ok(tonic::Response::new(stream))
     }
@@ -342,6 +369,7 @@ impl crate::pb::maison_server::Maison for Api {
         let req = req.into_inner();
         if let (Some(zone), Some(increment)) = (req.zone, req.increment) {
             let mut lock = self.state.write();
+            maybe_expire_heating_override(&mut lock);
             let state = lock.as_view();
             let existing = state
                 .heating_override()

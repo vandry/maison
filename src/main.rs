@@ -11,6 +11,7 @@ mod grpcweb;
 mod lights;
 mod mqtt;
 mod parse;
+mod schedule;
 mod state;
 
 mod pb {

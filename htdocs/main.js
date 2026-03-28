@@ -89,12 +89,15 @@ class Maison {
         this.clock_refresh = null;
         this.livetemp = {};
         this.setpoint = {};
+        this.scheduled_setpoint = {};
     }
 
     override_set_point_request = (zone) => {
         var req = new IncrementSetPointRequest();
         req.setZone(zone);
-        if (this.livetemp.hasOwnProperty(zone)) {
+        if (this.scheduled_setpoint.hasOwnProperty(zone)) {
+            req.setStartingValueIfUnset(Math.round(this.scheduled_setpoint[zone] * 2) / 2);
+        } else if (this.livetemp.hasOwnProperty(zone)) {
             req.setStartingValueIfUnset(Math.round(this.livetemp[zone] * 2) / 2);
         }
         req.setDurationMsIfNotAlreadySet(7200000);
@@ -276,6 +279,9 @@ class Maison {
         ) {
             req.setWantBoiler(true);
         }
+        if (document.getElementsByClassName("setpoint").length > 0) {
+            req.setWantHeatSchedule(true);
+        }
         var garden_lights_els = document.getElementsByClassName("garden_lights");
         for (var i = 0; i < garden_lights_els.length; i++) {
             req.setWantGardenLights(true);
@@ -332,6 +338,7 @@ class Maison {
                 top.accept_boiler(null);
                 top.accept_garden_lights(null);
                 top.accept_maison(null);
+                top.accept_heat_schedule(null);
                 return;
             }
             if (response.hasLiveTemperature()) {
@@ -354,6 +361,9 @@ class Maison {
             }
             if (response.hasMaison()) {
                 top.accept_maison(response.getMaison());
+            }
+            if (response.hasHeatSchedule()) {
+                top.accept_heat_schedule(response.getHeatSchedule());
             }
         });
         var closer_els = document.getElementsByClassName("closer");
@@ -551,6 +561,23 @@ class Maison {
     get_timer = (v) => {
         var ms = v.getSeconds() * 1000 + v.getNanos() / 1e6;
         return ms + this.clock_offset;
+    }
+
+    accept_heat_schedule = (response) => {
+        if (response === null) {
+            this.scheduled_setpoint = {};
+        } else {
+            var setpoint = {};
+            var hol = response.getHeatingList();
+            for (var i = 0; i < hol.length; i++) {
+                var sp = hol[i];
+                if (sp.hasZone() && sp.hasSetpoint()) {
+                    setpoint[sp.getZone()] = sp.getSetpoint();
+                }
+            }
+            this.scheduled_setpoint = setpoint;
+        }
+        this.update_setpoints();
     }
 
     accept_maison = (response) => {
@@ -769,16 +796,29 @@ class Maison {
                 spans[j].className = (v === null) ? "light_off" : "light_on";
             }
         }
+        this.update_setpoints();
+    }
+
+    update_setpoints = () => {
         var els3 = document.getElementsByClassName("setpoint");
         for (var i = 0; i < els3.length; i++) {
             var zone = find_climate_zone(els3[i]);
             if (zone === null) {
                 continue;
             }
-            if (this.setpoint.hasOwnProperty(zone)) {
-                els3[i].textContent = this.setpoint[zone].toFixed(1);
-            } else {
-                els3[i].textContent = "";
+            if (els3[i].childNodes.length > 0) {
+                els3[i].removeChild(els3[i].childNodes[0])
+            }
+            if (this.setpoint.hasOwnProperty(zone) && ((!this.scheduled_setpoint.hasOwnProperty(zone)) || (Math.abs(this.setpoint[zone] - this.scheduled_setpoint[zone]) > 1e-2))) {
+                var span = document.createElement('span');
+                span.className = "manual_setpoint";
+                span.textContent = this.setpoint[zone].toFixed(1);
+                els3[i].appendChild(span);
+            } else if (this.scheduled_setpoint.hasOwnProperty(zone)) {
+                var span = document.createElement('span');
+                span.className = "scheduled_setpoint";
+                span.textContent = this.scheduled_setpoint[zone].toFixed(1);
+                els3[i].appendChild(span);
             }
         }
     }
