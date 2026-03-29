@@ -7,7 +7,9 @@ use std::time::{Duration, SystemTime};
 mod api;
 mod autogarden;
 mod autokitchen;
+mod boiler;
 mod grpcweb;
+mod hotwater;
 mod lights;
 mod mqtt;
 mod parse;
@@ -51,6 +53,7 @@ pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
         PhantomData<api::Api>,
         Arc<autogarden::AutoGarden>,
         Arc<autokitchen::AutoKitchen>,
+        Arc<boiler::Controller<hotwater::HotWater>>,
     )>::new()?
     .run()
     .await
