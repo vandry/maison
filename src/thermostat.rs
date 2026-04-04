@@ -120,6 +120,14 @@ impl Thermostat<'_> {
         }
     }
 
+    fn setpoint(&self, is_heating_overridden: bool) -> Option<(f64, Option<u64>)> {
+        if is_heating_overridden {
+            self.setpoint_from_state_or_schedule()
+        } else {
+            self.setpoint_from_schedule()
+        }
+    }
+
     fn decide(&self, live: Option<f64>, now: SystemTime, is_heating_overridden: bool) -> Decision {
         let maybe_hysteresis = self.state.and_then(|s| s.hysteresis_opt().into_option());
         let default_decision = match maybe_hysteresis {
@@ -129,12 +137,7 @@ impl Thermostat<'_> {
         let Some(live_temp) = live else {
             return default_decision;
         };
-        let sp = if is_heating_overridden {
-            self.setpoint_from_state_or_schedule()
-        } else {
-            self.setpoint_from_schedule()
-        };
-        let Some((setpoint, unique)) = sp else {
+        let Some((setpoint, unique)) = self.setpoint(is_heating_overridden) else {
             return default_decision;
         };
         if let Some(hysteresis) = maybe_hysteresis {
@@ -173,6 +176,12 @@ impl ThermostatSetFuture {
 
     fn calculate(self: Pin<&mut Self>) -> bool {
         let mut this = self.project();
+        let now_i = Instant::now();
+        let now = SystemTime::now();
+        let heating_overridden_remaining = proto_ts_to_delay(
+            this.current_state.as_view().heating_override_until_opt(),
+            now,
+        );
         let mut want: HashMap<_, Thermostat<'_>> = HashMap::new();
         for o in this.current_state.heating_override() {
             if let Optional::Set(zone) = o.zone_opt() {
@@ -189,13 +198,12 @@ impl ThermostatSetFuture {
         this.monitors
             .retain(|zone, _| match want.get(zone.as_str()) {
                 None => false,
-                Some(Thermostat { state, schedule }) => {
-                    state.map(|s| s.has_setpoint()).unwrap_or_default()
-                        || schedule.map(|s| s.setpoint.is_some()).unwrap_or_default()
-                }
+                Some(t) => t.setpoint(heating_overridden_remaining.is_some()).is_some(),
             });
-        let any_added = want.keys().fold(false, |any_added, zone| {
-            if !this.monitors.contains_key(*zone) {
+        let any_added = want.iter().fold(false, |any_added, (zone, t)| {
+            if !this.monitors.contains_key(*zone)
+                && t.setpoint(heating_overridden_remaining.is_some()).is_some()
+            {
                 this.monitors.insert(
                     zone.to_string(),
                     ClimateMonitor::new(Arc::clone(&this.mqtt), zone),
@@ -209,12 +217,6 @@ impl ThermostatSetFuture {
             return false;
         }
 
-        let now_i = Instant::now();
-        let now = SystemTime::now();
-        let heating_overridden_remaining = proto_ts_to_delay(
-            this.current_state.as_view().heating_override_until_opt(),
-            now,
-        );
         let mut decisions = want
             .into_iter()
             .map(|(zone, thermostat)| {
