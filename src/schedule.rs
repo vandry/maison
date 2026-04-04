@@ -15,7 +15,7 @@ use crate::pb::{HeatSchedule, SetPoint};
 #[derive(Debug, Default)]
 struct SchedulePoint {
     water: bool,
-    heat: HashMap<String, f64>,
+    heat: HashMap<String, (f64, u64)>,
 }
 
 impl From<&SchedulePoint> for HeatSchedule {
@@ -23,9 +23,11 @@ impl From<&SchedulePoint> for HeatSchedule {
         let mut heating = h
             .heat
             .iter()
-            .map(|(z, v)| SetPoint {
+            .map(|(z, (v, unique))| SetPoint {
                 zone: Some(z.to_string()),
                 setpoint: Some(*v),
+                hysteresis: None,
+                unique: Some(*unique),
             })
             .collect::<Vec<_>>();
         heating.sort_by(|a, b| {
@@ -73,7 +75,7 @@ pub enum ScheduleReadError {
 #[derive(Clone, Debug)]
 enum ProgrammedEventDesc {
     Water(bool),
-    HeatZone(String, Option<f64>),
+    HeatZone(String, Option<(f64, u64)>),
 }
 
 #[derive(Clone, Debug)]
@@ -190,6 +192,7 @@ impl Resource for Schedule {
     ) -> Result<Arc<Self>, ScheduleReadError> {
         let tz = Tz::named(&a.tz)?;
         let mut s = ScheduleTracker::default();
+        let mut unique = 0;
         for l in std::io::BufReader::new(std::fs::File::open(a.schedule)?).lines() {
             let l = l?;
             let mut parts = l.split_whitespace().take_while(|p| !p.starts_with('#'));
@@ -210,10 +213,13 @@ impl Resource for Schedule {
                             None => Err(ScheduleReadError::UnknownEvent(x.to_string())),
                             Some((zone, temp_s)) => match temp_s {
                                 "off" => Ok(ProgrammedEventDesc::HeatZone(zone.to_string(), None)),
-                                x => Ok(ProgrammedEventDesc::HeatZone(
-                                    zone.to_string(),
-                                    Some(x.parse()?),
-                                )),
+                                x => {
+                                    unique += 1;
+                                    Ok(ProgrammedEventDesc::HeatZone(
+                                        zone.to_string(),
+                                        Some((x.parse()?, unique)),
+                                    ))
+                                }
                             },
                         },
                     }?;

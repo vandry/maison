@@ -15,6 +15,7 @@ mod mqtt;
 mod parse;
 mod schedule;
 mod state;
+mod thermostat;
 
 mod pb {
     tonic::include_proto!("maison");
@@ -28,8 +29,8 @@ fn new_backoff() -> backoff::ExponentialBackoff {
         .build()
 }
 
-fn after_now(d: Duration) -> Option<Timestamp> {
-    let tt = SystemTime::now()
+fn make_delay(start: SystemTime, d: Duration) -> Option<Timestamp> {
+    let tt = start
         .checked_add(d)?
         .duration_since(std::time::UNIX_EPOCH)
         .ok()?;
@@ -37,6 +38,10 @@ fn after_now(d: Duration) -> Option<Timestamp> {
         seconds: tt.as_secs().try_into().ok()?,
         nanos: tt.subsec_nanos().try_into().ok()?,
     }))
+}
+
+fn after_now(d: Duration) -> Option<Timestamp> {
+    make_delay(SystemTime::now(), d)
 }
 
 #[tokio::main]
@@ -54,6 +59,7 @@ pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Arc<autogarden::AutoGarden>,
         Arc<autokitchen::AutoKitchen>,
         Arc<boiler::Controller<hotwater::HotWater>>,
+        Arc<thermostat::ThermostatSet>,
     )>::new()?
     .run()
     .await

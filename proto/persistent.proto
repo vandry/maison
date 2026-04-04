@@ -4,9 +4,16 @@ package maison;
 
 import "google/protobuf/timestamp.proto";
 
+message Hysteresis {
+  optional google.protobuf.Timestamp until = 1;
+  optional bool state = 2;
+  optional uint64 schedule_unique = 3;
+}
+
 message SetPoint2 {
   optional string zone = 1;
   optional double setpoint = 2;
+  optional Hysteresis hysteresis = 3;
 }
 
 message PersistentState {

@@ -10,7 +10,8 @@ use tonic::Status;
 
 use crate::mqtt::Mqtt;
 use crate::pb::{
-    MaisonState, MonitorResponse, PersistentStateView, SetPoint, SetPoint2, SetPoint2View,
+    Hysteresis2, HysteresisView, MaisonState, MonitorResponse, PersistentStateView, SetPoint,
+    SetPoint2, SetPoint2View,
 };
 
 pub struct Api {
@@ -134,11 +135,23 @@ impl From<PersistentStateView<'_>> for MaisonState {
     }
 }
 
+impl From<HysteresisView<'_>> for Hysteresis2 {
+    fn from(s: HysteresisView<'_>) -> Hysteresis2 {
+        Hysteresis2 {
+            until: ts_to_ts(s.until_opt()),
+            state: s.state_opt().into(),
+            schedule_unique: s.schedule_unique_opt().into(),
+        }
+    }
+}
+
 impl From<SetPoint2View<'_>> for SetPoint {
     fn from(s: SetPoint2View<'_>) -> SetPoint {
         SetPoint {
             zone: s.zone_opt().into_option().map(|s| s.to_string()),
             setpoint: s.setpoint_opt().into(),
+            hysteresis: s.hysteresis_opt().into_option().map(Into::into),
+            unique: None,
         }
     }
 }
@@ -379,12 +392,15 @@ impl crate::pb::maison_server::Maison for Api {
                     protobuf::Optional::Set(z) if *z == *zone => true,
                     _ => false,
                 })
-                .map(|(i, _)| i);
+                .map(|(i, o)| (i, o.has_setpoint()));
             let has_heating_override_until = state.has_heating_override_until();
             let mut state_mut = lock.as_mut();
             let i = match (existing, req.starting_value_if_unset) {
-                (None, None) => Err(tonic::Status::not_found("no setpoint for zone")),
-                (None, Some(starting_value)) => {
+                (None, None) | (Some((_, false)), None) => {
+                    Err(tonic::Status::not_found("no setpoint for zone"))
+                }
+                (Some((i, true)), _) => Ok(i),
+                (existing, Some(starting_value)) => {
                     match (
                         req.duration_ms_if_not_already_set,
                         has_heating_override_until,
@@ -401,17 +417,29 @@ impl crate::pb::maison_server::Maison for Api {
                         }
                         (_, true) => (),
                     }
-                    state_mut.heating_override_mut().push(proto!(SetPoint2 {
-                        zone,
-                        setpoint: starting_value,
-                    }));
-                    Ok(state_mut.heating_override().len() - 1)
+                    match existing {
+                        Some((i, _)) => {
+                            state_mut
+                                .heating_override_mut()
+                                .get_mut(i)
+                                .unwrap()
+                                .set_setpoint(starting_value);
+                            Ok(i)
+                        }
+                        None => {
+                            state_mut.heating_override_mut().push(proto!(SetPoint2 {
+                                zone,
+                                setpoint: starting_value,
+                            }));
+                            Ok(state_mut.heating_override().len() - 1)
+                        }
+                    }
                 }
-                (Some(i), _) => Ok(i),
             }?;
             let mut heating_override_mut = state_mut.heating_override_mut();
             let mut setting = heating_override_mut.get_mut(i).unwrap();
             setting.set_setpoint(setting.setpoint() + increment);
+            setting.clear_hysteresis();
         }
         Ok(tonic::Response::new(()))
     }

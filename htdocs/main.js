@@ -592,6 +592,10 @@ class Maison {
                 this.update_clock();
             }
             this.setpoint = {};
+            var arrows = document.getElementsByClassName("thermostat_going");
+            for (var i = 0; i < els.length; i++) {
+                arrows[i].textContent = "\u27a1";
+            }
         } else {
             var now = Date.now();
             var server_now = response.getNow().getSeconds() * 1000 + response.getNow().getNanos() / 1e6;
@@ -615,13 +619,20 @@ class Maison {
                 this.hot_water_override_until = null;
             }
             var setpoint = {};
+            var goings = {};
             var hol = response.getHeatingOverrideList();
             for (var i = 0; i < hol.length; i++) {
                 var sp = hol[i];
-                if (sp.hasZone() && sp.hasSetpoint()) {
-                    setpoint[sp.getZone()] = sp.getSetpoint();
+                if (sp.hasZone()) {
+                    if (sp.hasSetpoint()) {
+                        setpoint[sp.getZone()] = sp.getSetpoint();
+                    }
+                    if (sp.hasHysteresis()) {
+                        goings[sp.getZone()] = sp.getHysteresis().getState() ? "\u2bad" : "\u2baf";
+                    }
                 }
             }
+            this.update_goings(goings);
             this.setpoint = setpoint;
         }
         this.garden_lights_update();
@@ -822,6 +833,21 @@ class Maison {
                 span.className = "scheduled_setpoint";
                 span.textContent = this.scheduled_setpoint[zone].toFixed(1);
                 els3[i].appendChild(span);
+            }
+        }
+    }
+
+    update_goings = (goings) => {
+        var els = document.getElementsByClassName("thermostat_going");
+        for (var i = 0; i < els.length; i++) {
+            var zone = find_climate_zone(els[i]);
+            if (zone === null) {
+                continue;
+            }
+            if (goings.hasOwnProperty(zone)) {
+                els[i].textContent = goings[zone];
+            } else {
+                els[i].textContent = "\u27a1";
             }
         }
     }
