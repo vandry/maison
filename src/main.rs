@@ -9,6 +9,7 @@ mod autogarden;
 mod autokitchen;
 mod boiler;
 mod grpcweb;
+mod heat;
 mod hotwater;
 mod lights;
 mod mqtt;
@@ -59,6 +60,7 @@ pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Arc<autogarden::AutoGarden>,
         Arc<autokitchen::AutoKitchen>,
         Arc<boiler::Controller<hotwater::HotWater>>,
+        Arc<boiler::Controller<heat::Heat>>,
         Arc<thermostat::ThermostatSet>,
     )>::new()?
     .run()

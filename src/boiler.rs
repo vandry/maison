@@ -10,19 +10,13 @@ use std::time::Duration;
 use tokio::time::{Sleep, sleep};
 
 use crate::mqtt::Mqtt;
-use crate::schedule::Schedule;
-use crate::state::State;
 
-pub trait ControlSignal: Send + Sync + 'static {
-    const NAME: &str;
+pub trait ControlSignal: comprehensive::AnyResource + Send + Sync + 'static {
+    const CONTROLLER_NAME: &str;
     const TOPIC: &str;
     type IntentStream: Stream<Item = bool> + Send;
 
-    fn get_intent_stream(
-        mqtt: &Arc<Mqtt>,
-        schedule: &Arc<Schedule>,
-        state: &Arc<State>,
-    ) -> Self::IntentStream;
+    fn get_intent_stream(&self) -> Self::IntentStream;
     fn get_live(msg: crate::parse::Message) -> Option<bool>;
 }
 
@@ -120,10 +114,10 @@ impl Stream for Hold {
 
 #[resource]
 impl<T: ControlSignal> Resource for Controller<T> {
-    const NAME: &str = T::NAME;
+    const NAME: &str = T::CONTROLLER_NAME;
 
     fn new(
-        (mqtt, schedule, state): (Arc<Mqtt>, Arc<Schedule>, Arc<State>),
+        (mqtt, signal): (Arc<Mqtt>, Arc<T>),
         _: comprehensive::NoArgs,
         runtime: &mut AssemblyRuntime<'_>,
     ) -> Result<Arc<Self>, std::convert::Infallible> {
@@ -132,7 +126,8 @@ impl<T: ControlSignal> Resource for Controller<T> {
             loop {
                 let mut want = None;
                 let mut got = None;
-                let intent = T::get_intent_stream(&mqtt, &schedule, &state)
+                let intent = signal
+                    .get_intent_stream()
                     .map(|x| Update::NewIntent(x))
                     .chain(Ended);
                 let live = mqtt
