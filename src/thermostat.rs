@@ -7,12 +7,13 @@ use std::collections::HashMap;
 use std::pin::Pin;
 use std::sync::Arc;
 use std::task::{Context, Poll, ready};
-use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+use std::time::{Duration, Instant, SystemTime};
 
 use crate::mqtt::{Mqtt, SubscriptionStream};
 use crate::pb::{
     Climate, HeatSchedule, HysteresisMut, PersistentState, SetPoint, SetPoint2, SetPoint2View,
 };
+use crate::proto_ts_to_delay;
 use crate::state::State;
 
 #[derive(clap::Args)]
@@ -74,26 +75,6 @@ enum Decision {
     Disable,
     Off(Option<u64>),
     On(Option<u64>),
-}
-
-fn proto_ts_to_delay(
-    ts: Optional<protobuf_well_known_types::TimestampView>,
-    now: SystemTime,
-) -> Option<Duration> {
-    if let Optional::Set(until_p) = ts {
-        if let Ok(secs) = until_p.seconds().try_into() {
-            if let Ok(nanos) = until_p.nanos().try_into() {
-                if let Some(until) = UNIX_EPOCH.checked_add(Duration::new(secs, nanos)) {
-                    if let Ok(delay) = until.duration_since(now) {
-                        if !delay.is_zero() {
-                            return Some(delay);
-                        }
-                    }
-                }
-            }
-        }
-    }
-    None
 }
 
 impl Thermostat<'_> {

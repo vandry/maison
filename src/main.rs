@@ -1,8 +1,8 @@
-use protobuf::proto;
+use protobuf::{Optional, proto};
 use protobuf_well_known_types::Timestamp;
 use std::marker::PhantomData;
 use std::sync::Arc;
-use std::time::{Duration, SystemTime};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 mod api;
 mod autogarden;
@@ -31,10 +31,7 @@ fn new_backoff() -> backoff::ExponentialBackoff {
 }
 
 fn make_delay(start: SystemTime, d: Duration) -> Option<Timestamp> {
-    let tt = start
-        .checked_add(d)?
-        .duration_since(std::time::UNIX_EPOCH)
-        .ok()?;
+    let tt = start.checked_add(d)?.duration_since(UNIX_EPOCH).ok()?;
     Some(proto!(Timestamp {
         seconds: tt.as_secs().try_into().ok()?,
         nanos: tt.subsec_nanos().try_into().ok()?,
@@ -43,6 +40,26 @@ fn make_delay(start: SystemTime, d: Duration) -> Option<Timestamp> {
 
 fn after_now(d: Duration) -> Option<Timestamp> {
     make_delay(SystemTime::now(), d)
+}
+
+fn proto_ts_to_delay(
+    ts: Optional<protobuf_well_known_types::TimestampView>,
+    now: SystemTime,
+) -> Option<Duration> {
+    if let Optional::Set(until_p) = ts {
+        if let Ok(secs) = until_p.seconds().try_into() {
+            if let Ok(nanos) = until_p.nanos().try_into() {
+                if let Some(until) = UNIX_EPOCH.checked_add(Duration::new(secs, nanos)) {
+                    if let Ok(delay) = until.duration_since(now) {
+                        if !delay.is_zero() {
+                            return Some(delay);
+                        }
+                    }
+                }
+            }
+        }
+    }
+    None
 }
 
 #[tokio::main]
