@@ -25,15 +25,16 @@ pub struct ThermostatSetArgs {
     live_temp_memory: Duration,
 }
 
-enum ClimateMonitor {
-    Subscribing(Pin<Box<dyn Future<Output = Arc<crate::mqtt::Subscription>> + Send>>),
-    Subscribed(Pin<Box<SubscriptionStream>>),
+struct ClimateMonitor {
+    inner: Pin<Box<SubscriptionStream>>,
 }
 
 impl ClimateMonitor {
     fn new(mqtt: Arc<Mqtt>, zone: &str) -> Self {
         let topic = format!("zigbee/climate/{}", zone);
-        Self::Subscribing(Box::pin(async move { mqtt.subscribe(topic).await }))
+        Self {
+            inner: Box::pin(mqtt.subscribe(topic).into_stream()),
+        }
     }
 }
 
@@ -41,15 +42,7 @@ impl Stream for ClimateMonitor {
     type Item = crate::parse::Message;
 
     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-        match *self.as_mut() {
-            Self::Subscribing(ref mut fut) => {
-                let mut inner = Box::pin(ready!(fut.as_mut().poll(cx)).into_stream());
-                let r = inner.as_mut().poll_next(cx);
-                *self = Self::Subscribed(inner);
-                r
-            }
-            Self::Subscribed(ref mut s) => s.as_mut().poll_next(cx),
-        }
+        self.inner.poll_next_unpin(cx)
     }
 }
 

@@ -132,7 +132,6 @@ impl<T: ControlSignal> Resource for Controller<T> {
                     .chain(Ended);
                 let live = mqtt
                     .subscribe(String::from("zigbee/boiler"))
-                    .await
                     .into_stream()
                     .filter_map(|x| std::future::ready(T::get_live(x).map(Update::NewLive)))
                     .chain(Ended);

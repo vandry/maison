@@ -59,11 +59,8 @@ impl Resource for AutoGarden {
         runtime.set_task(async move {
             let mut backoff = crate::new_backoff();
             loop {
-                let (light, door) = futures::join!(
-                    mqtt.subscribe(String::from("zigbee/garden")),
-                    mqtt.subscribe(String::from("zigbee/garden_door")),
-                );
-                let light = light
+                let light = mqtt
+                    .subscribe(String::from("zigbee/garden"))
                     .into_stream()
                     .filter_map(|m| std::future::ready(match m {
                         crate::parse::Message::SimpleSwitch(crate::pb::SimpleSwitch {
@@ -72,7 +69,8 @@ impl Resource for AutoGarden {
                         _ => None,
                     }))
                     .chain(Ended);
-                let door = door
+                let door = mqtt
+                    .subscribe(String::from("zigbee/garden_door"))
                     .into_stream()
                     .filter_map(|m| std::future::ready(match m {
                         crate::parse::Message::Contact(c) => Some(Update::Contact(c)),

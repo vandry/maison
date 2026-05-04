@@ -1,5 +1,5 @@
 use comprehensive::v1::{AssemblyRuntime, Resource, resource};
-use futures::{FutureExt, Stream, StreamExt};
+use futures::{Stream, StreamExt};
 use merge_streams::MergeStreams;
 use protobuf::proto;
 use protobuf_well_known_types::TimestampView;
@@ -53,13 +53,12 @@ impl Api {
         want: Option<bool>,
         topic: &str,
         convert: &'static (dyn Fn(crate::parse::Message) -> Option<MonitorResponse> + Sync),
-    ) -> Option<impl Future<Output = impl Stream<Item = Result<MonitorResponse, Status>> + 'static>>
-    {
+    ) -> Option<impl Stream<Item = Result<MonitorResponse, Status>> + 'static> {
         want.unwrap_or_default().then(move || {
-            self.mqtt.subscribe(String::from(topic)).map(move |sub| {
-                sub.into_stream()
-                    .filter_map(move |m| std::future::ready(convert(m).map(|x| Ok(x))))
-            })
+            self.mqtt
+                .subscribe(String::from(topic))
+                .into_stream()
+                .filter_map(move |m| std::future::ready(convert(m).map(|x| Ok(x))))
         })
     }
 
@@ -187,82 +186,80 @@ impl crate::pb::maison_server::Maison for Api {
         req: tonic::Request<crate::pb::MonitorEverythingRequest>,
     ) -> Result<tonic::Response<Self::MonitorEverythingStream>, Status> {
         let req = req.into_inner();
-        let mqtt_stream = futures::future::join_all(
-            [
-                self.maybe_subscribe(
-                    req.want_live_temperatures,
-                    "zigbee/climate/bottom",
-                    &convert_temperature,
-                ),
-                self.maybe_subscribe(
-                    req.want_live_temperatures,
-                    "zigbee/climate/middle",
-                    &convert_temperature,
-                ),
-                self.maybe_subscribe(
-                    req.want_live_temperatures,
-                    "zigbee/climate/top",
-                    &convert_temperature,
-                ),
-                self.maybe_subscribe(
-                    req.want_live_temperatures,
-                    "zigbee/climate/main",
-                    &convert_temperature,
-                ),
-                self.maybe_subscribe(
-                    req.want_live_temperatures,
-                    "zigbee/climate/kitchen",
-                    &convert_temperature,
-                ),
-                self.maybe_subscribe(req.want_kitchen_ceiling, "zigbee/kitchen_ceiling", &|x| {
-                    match x {
-                        crate::parse::Message::SimpleSwitch(x) => Some(MonitorResponse {
-                            message: Some(crate::pb::monitor_response::Message::KitchenCeiling(x)),
-                        }),
-                        _ => None,
-                    }
-                }),
-                self.maybe_subscribe(
-                    req.want_kitchen_under_cupboards,
-                    "zigbee/kitchen_under_cupboards",
-                    &|x| match x {
-                        crate::parse::Message::SimpleSwitch(x) => Some(MonitorResponse {
-                            message: Some(
-                                crate::pb::monitor_response::Message::KitchenUnderCupboards(x),
-                            ),
-                        }),
-                        _ => None,
-                    },
-                ),
-                self.maybe_subscribe(
-                    req.want_kitchen_under_stairs,
-                    "zigbee/kitchen_under_stairs",
-                    &|x| match x {
-                        crate::parse::Message::SimpleSwitch(x) => Some(MonitorResponse {
-                            message: Some(
-                                crate::pb::monitor_response::Message::KitchenUnderStairs(x),
-                            ),
-                        }),
-                        _ => None,
-                    },
-                ),
-                self.maybe_subscribe(req.want_boiler, "zigbee/boiler", &|x| match x {
-                    crate::parse::Message::Boiler(x) => Some(MonitorResponse {
-                        message: Some(crate::pb::monitor_response::Message::Boiler(x)),
-                    }),
-                    _ => None,
-                }),
-                self.maybe_subscribe(req.want_garden_lights, "zigbee/garden", &|x| match x {
+        let mqtt_stream = [
+            self.maybe_subscribe(
+                req.want_live_temperatures,
+                "zigbee/climate/bottom",
+                &convert_temperature,
+            ),
+            self.maybe_subscribe(
+                req.want_live_temperatures,
+                "zigbee/climate/middle",
+                &convert_temperature,
+            ),
+            self.maybe_subscribe(
+                req.want_live_temperatures,
+                "zigbee/climate/top",
+                &convert_temperature,
+            ),
+            self.maybe_subscribe(
+                req.want_live_temperatures,
+                "zigbee/climate/main",
+                &convert_temperature,
+            ),
+            self.maybe_subscribe(
+                req.want_live_temperatures,
+                "zigbee/climate/kitchen",
+                &convert_temperature,
+            ),
+            self.maybe_subscribe(
+                req.want_kitchen_ceiling,
+                "zigbee/kitchen_ceiling",
+                &|x| match x {
                     crate::parse::Message::SimpleSwitch(x) => Some(MonitorResponse {
-                        message: Some(crate::pb::monitor_response::Message::GardenLights(x)),
+                        message: Some(crate::pb::monitor_response::Message::KitchenCeiling(x)),
                     }),
                     _ => None,
+                },
+            ),
+            self.maybe_subscribe(
+                req.want_kitchen_under_cupboards,
+                "zigbee/kitchen_under_cupboards",
+                &|x| match x {
+                    crate::parse::Message::SimpleSwitch(x) => Some(MonitorResponse {
+                        message: Some(crate::pb::monitor_response::Message::KitchenUnderCupboards(
+                            x,
+                        )),
+                    }),
+                    _ => None,
+                },
+            ),
+            self.maybe_subscribe(
+                req.want_kitchen_under_stairs,
+                "zigbee/kitchen_under_stairs",
+                &|x| match x {
+                    crate::parse::Message::SimpleSwitch(x) => Some(MonitorResponse {
+                        message: Some(crate::pb::monitor_response::Message::KitchenUnderStairs(x)),
+                    }),
+                    _ => None,
+                },
+            ),
+            self.maybe_subscribe(req.want_boiler, "zigbee/boiler", &|x| match x {
+                crate::parse::Message::Boiler(x) => Some(MonitorResponse {
+                    message: Some(crate::pb::monitor_response::Message::Boiler(x)),
                 }),
-            ]
-            .into_iter()
-            .filter_map(|maybe_subscription| maybe_subscription),
-        )
-        .await
+                _ => None,
+            }),
+            self.maybe_subscribe(req.want_garden_lights, "zigbee/garden", &|x| match x {
+                crate::parse::Message::SimpleSwitch(x) => Some(MonitorResponse {
+                    message: Some(crate::pb::monitor_response::Message::GardenLights(x)),
+                }),
+                _ => None,
+            }),
+        ]
+        .into_iter()
+        .filter_map(|maybe_subscription| maybe_subscription)
+        .collect::<Vec<_>>()
         .merge();
         let stream: Self::MonitorEverythingStream = match (
             req.want_maison.unwrap_or_default(),

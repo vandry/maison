@@ -53,12 +53,8 @@ impl Resource for AutoKitchen {
         runtime.set_task(async move {
             let mut backoff = crate::new_backoff();
             loop {
-                let (l0, l1, l2) = futures::join!(
-                    mqtt.subscribe(String::from("zigbee/kitchen_ceiling")),
-                    mqtt.subscribe(String::from("zigbee/kitchen_under_cupboards")),
-                    mqtt.subscribe(String::from("zigbee/kitchen_under_stairs")),
-                );
-                let l0 = l0
+                let l0 = mqtt
+                    .subscribe(String::from("zigbee/kitchen_ceiling"))
                     .into_stream()
                     .filter_map(|m| {
                         std::future::ready(match m {
@@ -69,7 +65,8 @@ impl Resource for AutoKitchen {
                         })
                     })
                     .chain(Ended);
-                let l1 = l1
+                let l1 = mqtt
+                    .subscribe(String::from("zigbee/kitchen_under_cupboards"))
                     .into_stream()
                     .filter_map(|m| {
                         std::future::ready(match m {
@@ -80,7 +77,8 @@ impl Resource for AutoKitchen {
                         })
                     })
                     .chain(Ended);
-                let l2 = l2
+                let l2 = mqtt
+                    .subscribe(String::from("zigbee/kitchen_under_stairs"))
                     .into_stream()
                     .filter_map(|m| {
                         std::future::ready(match m {

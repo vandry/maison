@@ -82,7 +82,7 @@ impl Mqtt {
         }
     }
 
-    pub async fn subscribe(&self, topic: String) -> Arc<Subscription> {
+    pub fn subscribe(&self, topic: String) -> Arc<Subscription> {
         let mut topics = self.topics.lock().unwrap();
         match topics.entry(topic) {
             weak_table::weak_value_hash_map::Entry::Vacant(e) => {
