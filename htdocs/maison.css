@@ -1,7 +1,6 @@
 .part0 {
     position: absolute;
     top: 0;
-    height: 12%;
     left: 0;
     right: 0;
     display: flex;
@@ -12,10 +11,6 @@
     position: relative;
     align-items: center;
     display: flex;
-    border-left: 0.1em solid black;
-    border-right: 0.1em solid black;
-    padding-left: 0.2em;
-    padding-right: 0.2em;
 }
 
 .part0 > div > div {
@@ -32,8 +27,21 @@
 }
 
 @media (orientation: landscape) {
+    .part0 {
+        height: 12%;
+    }
+
+    .clock {
+        justify-content: right;
+        font-size: 4cqw;
+    }
+
     .part0 > div {
         width: 33%;
+        border-left: 0.1em solid black;
+        border-right: 0.1em solid black;
+        padding-left: 0.2em;
+        padding-right: 0.2em;
     }
 
     .part1 {
@@ -63,10 +71,6 @@
         font-size: 3vw;
     }
 
-    .clock {
-        font-size: 2vw;
-    }
-
     .hot_water_timer_popup {
         left: -50%;
         width: 200%;
@@ -87,13 +91,28 @@
 }
 
 @media (orientation: portrait) {
+    .part0 {
+        height: 30%;
+        flex-direction: column;
+    }
+
+    .clock {
+        justify-content: center;
+        font-size: 8cqw;
+    }
+
     .part0 > div {
-        width: 50%;
+        width: 100%;
+        border-top: 0.1em solid black;
+        border-bottom: 0.1em solid black;
+        padding-top: 0.2em;
+        padding-bottom: 0.2em;
+        max-height: 33%;
     }
 
     .part1 {
         position: absolute;
-        top: 12%;
+        top: 30%;
         bottom: 56%;
         left: 0;
         right: 0;
@@ -116,10 +135,6 @@
 
     .heating_timer {
         font-size: 6vw;
-    }
-
-    .part0 > div.clock {
-        display: none;
     }
 
     .hot_water_timer_popup {
@@ -332,10 +347,6 @@ img {
     display: flex;
     align-items: center;
     justify-content: center;
-}
-
-.clock {
-    justify-content: right;
 }
 
 .hot_water_timer_popup {
