@@ -19,7 +19,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     protobuf_codegen::CodeGen::new()
-        .protoc_path("protoc-34.0-rc-2")
+        .protoc_path("protoc-34.0")
         .inputs(["persistent.proto"])
         .include("proto")
         .dependency(protobuf_well_known_types::get_dependency(

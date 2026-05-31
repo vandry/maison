@@ -72,6 +72,7 @@ pub struct Mqtt {
     client: AsyncClient,
     topics: Mutex<WeakValueHashMap<String, Weak<Subscription>>>,
     sub_unsub: UnboundedSender<SubUnsub>,
+    dry_run: bool,
 }
 
 impl Mqtt {
@@ -107,9 +108,14 @@ impl Mqtt {
         T: Into<String>,
         V: Into<Vec<u8>>,
     {
-        self.client
-            .publish(topic, QoS::AtMostOnce, false, payload)
-            .await
+        if self.dry_run {
+            tracing::info!("DRY RUN: Would publish on {:?}", topic.into());
+            Ok(())
+        } else {
+            self.client
+                .publish(topic, QoS::AtMostOnce, false, payload)
+                .await
+        }
     }
 
     async fn run(
@@ -219,6 +225,8 @@ impl Mqtt {
 pub struct MqttArgs {
     #[arg(long, help = "Address of MQTT broker")]
     mqtt_address: SocketAddr,
+    #[arg(long, help = "Dry run MQTT publications")]
+    dry_run: bool,
 }
 
 #[resource]
@@ -242,6 +250,7 @@ impl Resource for Mqtt {
             client,
             topics: Mutex::new(WeakValueHashMap::new()),
             sub_unsub: sub_unsub_tx,
+            dry_run: a.dry_run,
         });
         let shared2 = Arc::clone(&shared);
         let shared3 = Arc::clone(&shared);
