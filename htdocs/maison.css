@@ -1,3 +1,12 @@
+body.dark {
+    background: black;
+    color: white;
+}
+
+body.dark .closer > img {
+    filter: invert(1);
+}
+
 .part0 {
     position: absolute;
     top: 0;
@@ -38,8 +47,8 @@
 
     .part0 > div {
         width: 33%;
-        border-left: 0.1em solid black;
-        border-right: 0.1em solid black;
+        border-left: 0.1em solid;
+        border-right: 0.1em solid;
         padding-left: 0.2em;
         padding-right: 0.2em;
     }
@@ -103,8 +112,8 @@
 
     .part0 > div {
         width: 100%;
-        border-top: 0.1em solid black;
-        border-bottom: 0.1em solid black;
+        border-top: 0.1em solid;
+        border-bottom: 0.1em solid;
         padding-top: 0.2em;
         padding-bottom: 0.2em;
         max-height: 33%;
@@ -255,6 +264,10 @@ table.temperatures img {
     background-color: white;
 }
 
+body.dark .kitchen_popup {
+    background-color: black;
+}
+
 .thermostat {
     width: 10em;
 }
@@ -274,6 +287,12 @@ table.temperatures img {
 }
 
 img {
+    object-fit: contain;
+    max-width: 100%;
+    max-height: 100%;
+}
+
+svg {
     object-fit: contain;
     max-width: 100%;
     max-height: 100%;
@@ -361,6 +380,10 @@ img {
     padding: 0.3em;
 }
 
+body.dark .hot_water_timer_popup {
+    background-color: black;
+}
+
 .hot_water_timer_popup span {
     display: flex;
     justify-content: center;
@@ -381,6 +404,10 @@ img {
     z-index: 10;
     background-color: white;
     padding: 0.3em;
+}
+
+body.dark .heating_timer_popup {
+    background-color: black;
 }
 
 .heating_timer_popup span {

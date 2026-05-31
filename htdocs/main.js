@@ -365,6 +365,13 @@ class Maison {
             if (response.hasHeatSchedule()) {
                 top.accept_heat_schedule(response.getHeatSchedule());
             }
+            if (response.hasDaylight()) {
+                if (response.getDaylight().getState()) {
+                    document.body.className = "light";
+                } else {
+                    document.body.className = "dark";
+                }
+            }
         });
         var closer_els = document.getElementsByClassName("closer");
         for (var i = 0; i < closer_els.length; i++) {

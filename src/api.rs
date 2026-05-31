@@ -96,6 +96,16 @@ impl Api {
             })
         })
     }
+
+    fn daylight_stream(&self) -> impl Stream<Item = Result<MonitorResponse, Status>> + 'static {
+        crate::daylight::stream().map(|s| {
+            Ok(MonitorResponse {
+                message: Some(crate::pb::monitor_response::Message::Daylight(
+                    crate::pb::SimpleSwitch { state: Some(s) },
+                )),
+            })
+        })
+    }
 }
 
 fn convert_temperature(x: crate::parse::Message) -> Option<MonitorResponse> {
@@ -265,14 +275,24 @@ impl crate::pb::maison_server::Maison for Api {
             req.want_maison.unwrap_or_default(),
             req.want_heat_schedule.unwrap_or_default(),
         ) {
-            (false, false) => Box::pin(mqtt_stream),
-            (true, false) => Box::pin((mqtt_stream, self.maison_stream()).merge()),
-            (false, true) => Box::pin((mqtt_stream, self.heat_schedule_stream()).merge()),
+            (false, false) => Box::pin((mqtt_stream, self.daylight_stream()).merge()),
+            (true, false) => {
+                Box::pin((mqtt_stream, self.maison_stream(), self.daylight_stream()).merge())
+            }
+            (false, true) => Box::pin(
+                (
+                    mqtt_stream,
+                    self.heat_schedule_stream(),
+                    self.daylight_stream(),
+                )
+                    .merge(),
+            ),
             (true, true) => Box::pin(
                 (
                     mqtt_stream,
                     self.maison_stream(),
                     self.heat_schedule_stream(),
+                    self.daylight_stream(),
                 )
                     .merge(),
             ),

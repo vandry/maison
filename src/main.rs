@@ -8,6 +8,7 @@ mod api;
 mod autogarden;
 mod autokitchen;
 mod boiler;
+mod daylight;
 mod grpcweb;
 mod heat;
 mod hotwater;

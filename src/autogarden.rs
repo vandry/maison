@@ -1,36 +1,14 @@
 use backoff::backoff::Backoff;
-use chrono::NaiveDate;
 use comprehensive::v1::{AssemblyRuntime, Resource, resource};
 use futures::{Stream, StreamExt};
 use std::pin::{Pin, pin};
 use std::sync::Arc;
 use std::task::{Context, Poll};
-use std::time::{SystemTime, UNIX_EPOCH};
-use sunrise::{Coordinates, SolarDay, SolarEvent};
 use tokio::time::sleep;
 
 use crate::mqtt::Mqtt;
 
 pub struct AutoGarden;
-
-fn is_night() -> Option<bool> {
-    let now = SystemTime::now();
-    let today = NaiveDate::from_epoch_days(
-        (now.duration_since(UNIX_EPOCH).ok()?.as_secs() / 86400)
-            .try_into()
-            .ok()?,
-    )?;
-    let solar = SolarDay::new(Coordinates::new(51.5, -0.1).unwrap(), today);
-    let rise: SystemTime = solar.event_time(SolarEvent::Sunrise)?.into();
-    if now < rise {
-        return Some(true);
-    }
-    let set: SystemTime = solar.event_time(SolarEvent::Sunset)?.into();
-    if now > set {
-        return Some(true);
-    }
-    Some(false)
-}
 
 #[derive(Debug)]
 enum Update {
@@ -90,7 +68,7 @@ impl Resource for AutoGarden {
                         }
                         Update::Contact(Some(false)) => {
                             if matches!(contact, Some(true)) && matches!(live_lights, Some(false)) {
-                                match is_night() {
+                                match crate::daylight::is_night() {
                                     None => {
                                         tracing::info!("Garden door opened while garden lights are off but I do not know if it is night");
                                     }

@@ -68,6 +68,7 @@ message MonitorResponse {
     SimpleSwitch garden_lights = 6;
     MaisonState maison = 7;
     HeatSchedule heat_schedule = 8;
+    SimpleSwitch daylight = 9;
   }
 }
 
