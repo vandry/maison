@@ -69,10 +69,6 @@ impl Stream for HotWaterIntentStream {
                 Poll::Ready(Some(x)) => {
                     let now = x.hot_water.unwrap_or_default();
                     *this.programmed = Some(now);
-                    if now != *this.reported {
-                        *this.reported = now;
-                        return Poll::Ready(Some(now));
-                    }
                 }
                 Poll::Ready(None) => {
                     tracing::error!("Schedule stream ended");
@@ -81,6 +77,12 @@ impl Stream for HotWaterIntentStream {
                 Poll::Pending => {
                     break;
                 }
+            }
+        }
+        if let Some(programmed) = this.programmed {
+            if *programmed != *this.reported {
+                *this.reported = *programmed;
+                return Poll::Ready(Some(*programmed));
             }
         }
         Poll::Pending
