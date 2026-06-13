@@ -423,3 +423,40 @@ body.dark .heating_timer_popup {
 .manual_setpoint {
     text-decoration: underline;
 }
+
+.floor {
+    position: absolute;
+    bottom: 0;
+}
+
+.floor > div {
+    position: absolute;
+    top: 10%;
+    bottom: 10%;
+    left: 10%;
+    right: 10%;
+    display: none;
+}
+
+.floor > div.light_on {
+    display: inline;
+}
+
+.floortimer {
+    background-color: white;
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 25%;
+    right: 25%;
+    border: 0.6em solid;
+}
+
+body.dark .floortimer {
+    background-color: black;
+}
+
+.flame2 {
+    position: absolute;
+    right: 0;
+}

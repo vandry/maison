@@ -109,6 +109,7 @@ impl From<rumqttc::Publish> for Message {
         let m = match p.topic.as_str() {
             "zigbee/boiler" => parse_boiler(&p.payload),
             "zigbee/garden" => parse_simple_switch(&p.payload),
+            "zigbee/underfloor_heating" => parse_simple_switch(&p.payload),
             "zigbee/kitchen_ceiling" => parse_simple_switch(&p.payload),
             "zigbee/kitchen_under_stairs" => parse_simple_switch(&p.payload),
             "zigbee/kitchen_under_cupboards" => parse_simple_switch(&p.payload),

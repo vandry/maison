@@ -327,6 +327,9 @@ class Maison {
         ) {
             req.setWantMaison(true);
         }
+        if (document.getElementsByClassName("floor").length > 0) {
+            req.setWantUnderfloorHeating(true);
+        }
         this.subscribe(() => {
             return this.api.monitorEverything(req, {});
         }, (response) => {
@@ -339,6 +342,7 @@ class Maison {
                 top.accept_garden_lights(null);
                 top.accept_maison(null);
                 top.accept_heat_schedule(null);
+                top.accept_underfloor_heating(null);
                 return;
             }
             if (response.hasLiveTemperature()) {
@@ -358,6 +362,9 @@ class Maison {
             }
             if (response.hasGardenLights()) {
                 top.accept_garden_lights(response.getGardenLights());
+            }
+            if (response.hasUnderfloorHeating()) {
+                top.accept_underfloor_heating(response.getUnderfloorHeating());
             }
             if (response.hasMaison()) {
                 top.accept_maison(response.getMaison());
@@ -559,6 +566,23 @@ class Maison {
                     var spans = els[i].getElementsByTagName("span");
                     for (var j = 0; j < spans.length; j++) {
                         spans[j].className = (v === null) ? 'light_unknown' : (v ? 'light_on' : 'light_off');
+                    }
+                }
+            },
+        );
+    }
+
+    accept_underfloor_heating = (response) => {
+        var top = this;
+        this.display_value(
+            'underfloor_heating',
+            (response === null) ? null : (response.hasState() ? response.getState() : null),
+            66000000,
+            (v) => {
+                var els = document.getElementsByClassName("floor");
+                for (var i = 0; i < els.length; i++) {
+                    for (var j = 0; j < els[i].childNodes.length; j++) {
+                        els[i].childNodes[j].className = (v === null) ? 'light_unknown' : (v ? 'light_on' : 'light_off');
                     }
                 }
             },
