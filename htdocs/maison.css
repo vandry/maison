@@ -7,6 +7,10 @@ body.dark .closer > img {
     filter: invert(1);
 }
 
+body.dark td {
+    color: white;
+}
+
 .part0 {
     position: absolute;
     top: 0;
