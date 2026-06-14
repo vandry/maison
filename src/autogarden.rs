@@ -30,7 +30,10 @@ impl Stream for Ended {
 #[resource]
 impl Resource for AutoGarden {
     fn new(
-        (mqtt, lights): (Arc<Mqtt>, Arc<crate::lights::Garden>),
+        (mqtt, lights): (
+            Arc<Mqtt>,
+            Arc<crate::lights::OnOffTimer<crate::lights::Garden>>,
+        ),
         _: comprehensive::NoArgs,
         runtime: &mut AssemblyRuntime<'_>,
     ) -> Result<Arc<Self>, std::convert::Infallible> {

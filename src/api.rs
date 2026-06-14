@@ -17,7 +17,8 @@ use crate::pb::{
 pub struct Api {
     mqtt: Arc<Mqtt>,
     state: Arc<crate::state::State>,
-    garden_lights: Arc<crate::lights::Garden>,
+    garden_lights: Arc<crate::lights::OnOffTimer<crate::lights::Garden>>,
+    underfloor_heating: Arc<crate::lights::OnOffTimer<crate::lights::UnderfloorHeating>>,
     autokitchen: Arc<crate::autokitchen::AutoKitchen>,
     schedule: Arc<crate::schedule::Schedule>,
 }
@@ -27,10 +28,11 @@ pub struct Api {
 #[proto_descriptor(crate::pb::FILE_DESCRIPTOR_SET)]
 impl Resource for Api {
     fn new(
-        (mqtt, state, garden_lights, autokitchen, schedule): (
+        (mqtt, state, garden_lights, underfloor_heating, autokitchen, schedule): (
             Arc<Mqtt>,
             Arc<crate::state::State>,
-            Arc<crate::lights::Garden>,
+            Arc<crate::lights::OnOffTimer<crate::lights::Garden>>,
+            Arc<crate::lights::OnOffTimer<crate::lights::UnderfloorHeating>>,
             Arc<crate::autokitchen::AutoKitchen>,
             Arc<crate::schedule::Schedule>,
         ),
@@ -41,6 +43,7 @@ impl Resource for Api {
             mqtt,
             state,
             garden_lights,
+            underfloor_heating,
             autokitchen,
             schedule,
         }))
@@ -140,6 +143,7 @@ impl From<PersistentStateView<'_>> for MaisonState {
             hot_water_override_until: ts_to_ts(s.hot_water_override_until_opt()),
             heating_override_until: ts_to_ts(s.heating_override_until_opt()),
             heating_override: s.heating_override().iter().map(Into::into).collect(),
+            underfloor_heating_until: ts_to_ts(s.underfloor_heating_until_opt()),
         }
     }
 }
@@ -266,12 +270,16 @@ impl crate::pb::maison_server::Maison for Api {
                 }),
                 _ => None,
             }),
-            self.maybe_subscribe(req.want_underfloor_heating, "zigbee/underfloor_heating", &|x| match x {
-                crate::parse::Message::SimpleSwitch(x) => Some(MonitorResponse {
-                    message: Some(crate::pb::monitor_response::Message::UnderfloorHeating(x)),
-                }),
-                _ => None,
-            }),
+            self.maybe_subscribe(
+                req.want_underfloor_heating,
+                "zigbee/underfloor_heating",
+                &|x| match x {
+                    crate::parse::Message::SimpleSwitch(x) => Some(MonitorResponse {
+                        message: Some(crate::pb::monitor_response::Message::UnderfloorHeating(x)),
+                    }),
+                    _ => None,
+                },
+            ),
         ]
         .into_iter()
         .filter_map(|maybe_subscription| maybe_subscription)
@@ -311,6 +319,16 @@ impl crate::pb::maison_server::Maison for Api {
         req: tonic::Request<crate::pb::SetLightsRequest>,
     ) -> Result<tonic::Response<()>, Status> {
         self.garden_lights
+            .duration_ms(req.into_inner().duration_ms)
+            .await?;
+        Ok(tonic::Response::new(()))
+    }
+
+    async fn set_underfloor_heating(
+        &self,
+        req: tonic::Request<crate::pb::SetLightsRequest>,
+    ) -> Result<tonic::Response<()>, Status> {
+        self.underfloor_heating
             .duration_ms(req.into_inner().duration_ms)
             .await?;
         Ok(tonic::Response::new(()))

@@ -40,6 +40,7 @@ message MaisonState {
   optional google.protobuf.Timestamp hot_water_override_until = 3;
   optional google.protobuf.Timestamp heating_override_until = 4;
   repeated SetPoint heating_override = 5;
+  optional google.protobuf.Timestamp underfloor_heating_until = 6;
 }
 
 message HeatSchedule {
@@ -100,4 +101,5 @@ service Maison {
   rpc SetHeating(SetLightsRequest) returns (google.protobuf.Empty) {}
   rpc CancelHeatingOverride(google.protobuf.Empty) returns (google.protobuf.Empty) {}
   rpc IncrementSetPoint(IncrementSetPointRequest) returns (google.protobuf.Empty) {}
+  rpc SetUnderfloorHeating(SetLightsRequest) returns (google.protobuf.Empty) {}
 }

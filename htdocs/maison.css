@@ -460,6 +460,14 @@ body.dark .floortimer {
     background-color: black;
 }
 
+.floor_timer {
+    font-size: 4cqw;
+    display: flex;
+    flex-wrap: wrap;
+    height: 100%;
+    place-content: center;
+}
+
 .flame2 {
     position: absolute;
     right: 0;
