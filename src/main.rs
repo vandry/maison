@@ -18,6 +18,7 @@ mod parse;
 mod schedule;
 mod state;
 mod thermostat;
+mod vase;
 
 mod pb {
     tonic::include_proto!("maison");
@@ -80,6 +81,7 @@ pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Arc<boiler::Controller<hotwater::HotWater>>,
         Arc<boiler::Controller<heat::Heat>>,
         Arc<thermostat::ThermostatSet>,
+        Arc<vase::VaseLamp>,
     )>::new()?
     .run()
     .await

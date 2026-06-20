@@ -4,7 +4,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use sunrise::{Coordinates, SolarDay, SolarEvent};
 use tokio::time::sleep;
 
-fn state_and_len() -> Option<(bool, Duration)> {
+pub fn state_and_len() -> Option<(bool, Duration)> {
     let now = SystemTime::now();
     let today = NaiveDate::from_epoch_days(
         (now.duration_since(UNIX_EPOCH).ok()?.as_secs() / 86400)

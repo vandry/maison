@@ -19,6 +19,7 @@ pub enum Message {
     Climate(crate::pb::Climate),
     SimpleSwitch(crate::pb::SimpleSwitch),
     Contact(Option<bool>),
+    Hue(HueJson),
 }
 
 fn check_last_seen(ls_epoch: u64, max_staleness: Duration) -> Result<(), ()> {
@@ -97,11 +98,30 @@ struct ContactJson {
     last_seen: u64,
 }
 
+#[derive(Clone, Default, Deserialize, Debug)]
+pub struct HueColour {
+    pub hue: Option<f64>,
+    pub saturation: Option<f64>,
+}
+
+#[derive(Clone, Deserialize, Debug)]
+pub struct HueJson {
+    pub color: Option<HueColour>,
+    last_seen: u64,
+}
+
 fn parse_contact(p: &Bytes) -> Result<Message, Problem> {
     let json = std::str::from_utf8(p).map_err(|_| Problem::BadUtf8)?;
     let m = serde_json::from_str::<ContactJson>(json).map_err(|_| Problem::BadJson)?;
     check_last_seen(m.last_seen, Duration::from_secs(66000)).map_err(|_| Problem::Stale)?;
     Ok(Message::Contact(Some(m.contact)))
+}
+
+fn parse_hue(p: &Bytes) -> Result<Message, Problem> {
+    let json = std::str::from_utf8(p).map_err(|_| Problem::BadUtf8)?;
+    let m = serde_json::from_str::<HueJson>(json).map_err(|_| Problem::BadJson)?;
+    check_last_seen(m.last_seen, Duration::from_secs(66000)).map_err(|_| Problem::Stale)?;
+    Ok(Message::Hue(m))
 }
 
 impl From<rumqttc::Publish> for Message {
@@ -114,6 +134,7 @@ impl From<rumqttc::Publish> for Message {
             "zigbee/kitchen_under_stairs" => parse_simple_switch(&p.payload),
             "zigbee/kitchen_under_cupboards" => parse_simple_switch(&p.payload),
             "zigbee/garden_door" => parse_contact(&p.payload),
+            "zigbee/vase_lamp" => parse_hue(&p.payload),
             t => match t.strip_prefix("zigbee/climate/") {
                 Some(unit) => parse_climate(&p.payload, unit),
                 None => Err(Problem::UnrecognisedTopic),
