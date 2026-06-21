@@ -280,6 +280,16 @@ impl crate::pb::maison_server::Maison for Api {
                     _ => None,
                 },
             ),
+            self.maybe_subscribe(
+                req.want_sprinklers,
+                "zigbee/water_valve/sprinklers",
+                &|x| match x {
+                    crate::parse::Message::SimpleSwitch(x) => Some(MonitorResponse {
+                        message: Some(crate::pb::monitor_response::Message::Sprinklers(x)),
+                    }),
+                    _ => None,
+                },
+            ),
         ]
         .into_iter()
         .filter_map(|maybe_subscription| maybe_subscription)

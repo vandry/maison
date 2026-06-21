@@ -58,6 +58,7 @@ message MonitorEverythingRequest {
   optional bool want_maison = 7;
   optional bool want_heat_schedule = 8;
   optional bool want_underfloor_heating = 9;
+  optional bool want_sprinklers = 10;
 }
 
 message MonitorResponse {
@@ -72,6 +73,7 @@ message MonitorResponse {
     HeatSchedule heat_schedule = 8;
     SimpleSwitch daylight = 9;
     SimpleSwitch underfloor_heating = 10;
+    SimpleSwitch sprinklers = 11;
   }
 }
 

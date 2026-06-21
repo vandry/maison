@@ -135,6 +135,7 @@ impl From<rumqttc::Publish> for Message {
             "zigbee/kitchen_under_cupboards" => parse_simple_switch(&p.payload),
             "zigbee/garden_door" => parse_contact(&p.payload),
             "zigbee/vase_lamp" => parse_hue(&p.payload),
+            "zigbee/water_valve/sprinklers" => parse_simple_switch(&p.payload),
             t => match t.strip_prefix("zigbee/climate/") {
                 Some(unit) => parse_climate(&p.payload, unit),
                 None => Err(Problem::UnrecognisedTopic),

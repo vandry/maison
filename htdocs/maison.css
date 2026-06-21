@@ -472,3 +472,57 @@ body.dark .floortimer {
     position: absolute;
     right: 0;
 }
+
+.showers {
+    position: absolute;
+    left: 0;
+    right: 0;
+    top: 0;
+    bottom: 0;
+    overflow: clip;
+    opacity: 0.2;
+    pointer-events: none;
+    z-index: 20;
+}
+
+.template {
+    display: none;
+}
+
+.splash {
+    position: absolute;
+    width: 20cqw;
+    height: 20cqw;
+    translate: -10cqw -10cqw;
+    --droplet-probability: 0.01;
+    --replicas: 30;
+}
+
+.splash > img {
+    position: absolute;
+    width: 10%;
+    height: 10%;
+    --angle: 0;
+    --left: 0;
+    --top: 0;
+    left: var(--left);
+    top: var(--top);
+    transform: translate(-1cqw, -1cqh) rotate(var(--angle)) translateY(1cqh);
+}
+
+.splash > div {
+    position: absolute;
+    background-color: #006080;
+    opacity: 0.3;
+    width: 0.2em;
+    height: var(--radius);
+    --angle: 0;
+    --radius: 0;
+    left: 50%;
+    top: 50%;
+    transform: translateY(-50%) translateY(0.2em) rotate(var(--angle)) translateY(50%);
+}
+
+.splash > svg > path {
+    width: var(--radius);
+}

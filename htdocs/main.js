@@ -131,6 +131,11 @@ class Maison {
         this.setpoint = {};
         this.scheduled_setpoint = {};
         this.underfloor_heating = null;
+        this.showers = [];
+        this.droplets = {};
+        this.droplet_serial = 0;
+        this.splashes = [];
+        this.sprinklers_refresh = null;
     }
 
     override_set_point_request = (zone) => {
@@ -386,6 +391,10 @@ class Maison {
                 });
             });
         }
+        this.setup_droplets();
+        if (this.showers.length > 0) {
+            req.setWantSprinklers(true);
+        }
         this.subscribe(() => {
             return this.api.monitorEverything(req, {});
         }, (response) => {
@@ -399,6 +408,7 @@ class Maison {
                 top.accept_maison(null);
                 top.accept_heat_schedule(null);
                 top.accept_underfloor_heating(null);
+                top.accept_sprinklers(null);
                 return;
             }
             if (response.hasLiveTemperature()) {
@@ -421,6 +431,9 @@ class Maison {
             }
             if (response.hasUnderfloorHeating()) {
                 top.accept_underfloor_heating(response.getUnderfloorHeating());
+            }
+            if (response.hasSprinklers()) {
+                top.accept_sprinklers(response.getSprinklers());
             }
             if (response.hasMaison()) {
                 top.accept_maison(response.getMaison());
@@ -455,6 +468,85 @@ class Maison {
         }
         install_timer_adjust("hot_water_timer_popup", (r, h, c) => { top.api.setHotWater(r, h, c); });
         install_timer_adjust("heating_timer_popup", (r, h, c) => { top.api.setHeating(r, h, c); });
+    }
+
+    setup_droplets = () => {
+        var els = document.getElementsByClassName("showers_template");
+        for (var i = 0; i < els.length; i++) {
+            var parent = els[i].parentNode;
+            for (var j = 0; j < els[i].childNodes.length; j++) {
+                var t = els[i].childNodes[j];
+                if (t.nodeType === t.ELEMENT_NODE) {
+                    var replicas = parseInt(window.getComputedStyle(t).getPropertyValue("--replicas"));
+                    this.showers.push({ parent: parent, el: t, replicas: replicas });
+                }
+            }
+            parent.removeChild(els[i]);
+        }
+    }
+
+    make_splashes = () => {
+        for (var i = 0; i < this.showers.length; i++) {
+            var s = this.showers[i];
+            for (var j = 0; j < s.replicas; j++) {
+                var x = Math.random();
+                var y = Math.random();
+                var el = s.el.cloneNode(true);
+                el.style.top = (y * 100) + 'cqh';
+                el.style.left = (x * 100) + 'cqw';
+                var templates = [];
+                while (el.childNodes.length > 0) {
+                    var droplet = el.childNodes[0];
+                    if (droplet.nodeType === droplet.ELEMENT_NODE) {
+                        templates.push(droplet);
+                    }
+                    el.removeChild(droplet);
+                }
+                s.parent.appendChild(el);
+                var p = parseFloat(window.getComputedStyle(el).getPropertyValue("--droplet-probability"));
+                var splash = { el: el, templates: templates, p: p, };
+                this.splashes.push(splash);
+            }
+        }
+        this.sprinklers_refresh = setInterval(() => {
+            for (var i = 0; i < this.splashes.length; i++) {
+                var splash = this.splashes[i];
+                if (Math.random() > splash.p) {
+                    continue;
+                }
+                var angle = Math.random() * 2 * Math.PI;
+                for (var j = 0; j < splash.templates.length; j++) {
+                    var droplet = {
+                        el: splash.templates[j].cloneNode(true),
+                        angle: angle,
+                        radius: 0,
+                    };
+                    droplet.el.style.setProperty("--angle", (-Math.PI/2 - angle) + "rad");
+                    droplet.el.style.setProperty("--left", "50%");
+                    droplet.el.style.setProperty("--top", "50%");
+                    droplet.el.style.setProperty("--radius", "0%");
+                    splash.el.appendChild(droplet.el);
+                    this.droplets[this.droplet_serial++] = droplet;
+                }
+            }
+            var toofar = [];
+            for (const [serial, droplet] of Object.entries(this.droplets)) {
+                droplet.radius += 0.005;
+                if (droplet.radius > 1.0) {
+                    toofar.push(serial);
+                    droplet.el.parentNode.removeChild(droplet.el);
+                    continue;
+                }
+                var x = Math.cos(droplet.angle) * droplet.radius;
+                var y = Math.sin(droplet.angle) * droplet.radius;
+                droplet.el.style.setProperty("--left", ((x + 1) * 50) + "%");
+                droplet.el.style.setProperty("--top", ((-y + 1) * 50) + "%");
+                droplet.el.style.setProperty("--radius", (droplet.radius * 50) + "%");
+            }
+            for (var i = 0; i < toofar.length; i++) {
+                delete this.droplets[toofar[i]];
+            }
+        }, 10);
     }
 
     display_value = (staleness_key, value, lifetime, setter) => {
@@ -652,6 +744,33 @@ class Maison {
         );
     }
 
+    accept_sprinklers = (response) => {
+        var top = this;
+        this.display_value(
+            'sprinklers',
+            (response === null) ? null : (response.hasState() ? response.getState() : null),
+            66000000,
+            (v) => {
+                if (v) {
+                    if (top.sprinklers_refresh === null) {
+                        top.make_splashes();
+                    }
+                } else {
+                    if (top.sprinklers_refresh !== null) {
+                        clearInterval(top.sprinklers_refresh);
+                        top.sprinklers_refresh = null;
+                        for (var i = 0; i < top.splashes.length; i++) {
+                            var el = top.splashes[i].el;
+                            el.parentNode.removeChild(el);
+                        }
+                        top.splashes = [];
+                        top.droplets = {};
+                    }
+                }
+            },
+        );
+    }
+
     get_timer = (v) => {
         var ms = v.getSeconds() * 1000 + v.getNanos() / 1e6;
         return ms + this.clock_offset;
@@ -688,7 +807,7 @@ class Maison {
             }
             this.setpoint = {};
             var arrows = document.getElementsByClassName("thermostat_going");
-            for (var i = 0; i < els.length; i++) {
+            for (var i = 0; i < arrows.length; i++) {
                 arrows[i].textContent = "\u27a1";
             }
         } else {
