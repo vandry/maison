@@ -7,6 +7,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 mod api;
 mod autogarden;
 mod autokitchen;
+mod autosprinklers;
 mod boiler;
 mod daylight;
 mod grpcweb;
@@ -78,6 +79,7 @@ pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
         PhantomData<api::Api>,
         Arc<autogarden::AutoGarden>,
         Arc<autokitchen::AutoKitchen>,
+        Arc<autosprinklers::AutoSprinklers>,
         Arc<boiler::Controller<hotwater::HotWater>>,
         Arc<boiler::Controller<heat::Heat>>,
         Arc<thermostat::ThermostatSet>,

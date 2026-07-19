@@ -144,3 +144,21 @@ impl OnOffTimerImpl for UnderfloorHeating {
         state.clear_underfloor_heating_until();
     }
 }
+
+pub struct GardenSprinklers;
+
+impl OnOffTimerImpl for GardenSprinklers {
+    const SET_TOPIC: &str = "zigbee/water_valve/sprinklers/set/state";
+
+    fn get_timer(state: PersistentStateView<'_>) -> protobuf::Optional<TimestampView<'_>> {
+        state.garden_sprinklers_until_opt()
+    }
+
+    fn set_timer(mut state: PersistentStateMut<'_>, ts: Timestamp) {
+        state.set_garden_sprinklers_until(ts);
+    }
+
+    fn clear_timer(mut state: PersistentStateMut<'_>) {
+        state.clear_garden_sprinklers_until();
+    }
+}

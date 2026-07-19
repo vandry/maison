@@ -395,6 +395,22 @@ class Maison {
         if (this.showers.length > 0) {
             req.setWantSprinklers(true);
         }
+        var soil_els = document.getElementsByClassName("soil");
+        for (var i = 0; i < soil_els.length; i++) {
+            soil_els[i].addEventListener('click', () => {
+                var req = new SetLightsRequest();
+                if (top.sprinklers_refresh === null) {
+                    req.setDurationMs(1800000);
+                } else {
+                    req.setDurationMs(0);
+                }
+                this.api.setGardenSprinklers(req, {}, (err, response) => {
+                    if (err) {
+                        console.log(err.code + " " + err.message);
+                    }
+                });
+            });
+        }
         this.subscribe(() => {
             return this.api.monitorEverything(req, {});
         }, (response) => {

@@ -19,6 +19,7 @@ pub struct Api {
     state: Arc<crate::state::State>,
     garden_lights: Arc<crate::lights::OnOffTimer<crate::lights::Garden>>,
     underfloor_heating: Arc<crate::lights::OnOffTimer<crate::lights::UnderfloorHeating>>,
+    garden_sprinklers: Arc<crate::lights::OnOffTimer<crate::lights::GardenSprinklers>>,
     autokitchen: Arc<crate::autokitchen::AutoKitchen>,
     schedule: Arc<crate::schedule::Schedule>,
 }
@@ -28,11 +29,12 @@ pub struct Api {
 #[proto_descriptor(crate::pb::FILE_DESCRIPTOR_SET)]
 impl Resource for Api {
     fn new(
-        (mqtt, state, garden_lights, underfloor_heating, autokitchen, schedule): (
+        (mqtt, state, garden_lights, underfloor_heating, garden_sprinklers, autokitchen, schedule): (
             Arc<Mqtt>,
             Arc<crate::state::State>,
             Arc<crate::lights::OnOffTimer<crate::lights::Garden>>,
             Arc<crate::lights::OnOffTimer<crate::lights::UnderfloorHeating>>,
+            Arc<crate::lights::OnOffTimer<crate::lights::GardenSprinklers>>,
             Arc<crate::autokitchen::AutoKitchen>,
             Arc<crate::schedule::Schedule>,
         ),
@@ -44,6 +46,7 @@ impl Resource for Api {
             state,
             garden_lights,
             underfloor_heating,
+            garden_sprinklers,
             autokitchen,
             schedule,
         }))
@@ -339,6 +342,16 @@ impl crate::pb::maison_server::Maison for Api {
         req: tonic::Request<crate::pb::SetLightsRequest>,
     ) -> Result<tonic::Response<()>, Status> {
         self.underfloor_heating
+            .duration_ms(req.into_inner().duration_ms)
+            .await?;
+        Ok(tonic::Response::new(()))
+    }
+
+    async fn set_garden_sprinklers(
+        &self,
+        req: tonic::Request<crate::pb::SetLightsRequest>,
+    ) -> Result<tonic::Response<()>, Status> {
+        self.garden_sprinklers
             .duration_ms(req.into_inner().duration_ms)
             .await?;
         Ok(tonic::Response::new(()))

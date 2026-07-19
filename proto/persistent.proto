@@ -22,4 +22,5 @@ message PersistentState {
   optional google.protobuf.Timestamp heating_override_until = 4;
   repeated SetPoint2 heating_override = 5;
   optional google.protobuf.Timestamp underfloor_heating_until = 6;
+  optional google.protobuf.Timestamp garden_sprinklers_until = 7;
 }

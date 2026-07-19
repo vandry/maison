@@ -15,6 +15,7 @@ use std::time::{Duration, SystemTime};
 use tokio::time::sleep;
 use tzfile::Tz;
 
+use crate::daylight::SunStatus;
 use crate::mqtt::Mqtt;
 
 const NOON: NaiveTime = NaiveTime::from_hms_opt(12, 0, 0).unwrap();
@@ -94,14 +95,18 @@ impl<'a> Setter<'a> {
         let saturation = (x * x + y * y).sqrt().clamp(0.0, 1.0);
         let brightness = match crate::daylight::state_and_len() {
             None => None,
-            Some((true, duration_until_set)) => {
-                if duration_until_set > self.fade_in {
+            Some(SunStatus {
+                is_day: true,
+                duration_until_change,
+                ..
+            }) => {
+                if duration_until_change > self.fade_in {
                     None
                 } else {
-                    Some(1.0 - (duration_until_set.as_secs_f64() / self.fade_in.as_secs_f64()))
+                    Some(1.0 - (duration_until_change.as_secs_f64() / self.fade_in.as_secs_f64()))
                 }
             }
-            Some((false, _)) => {
+            Some(SunStatus { is_day: false, .. }) => {
                 let now = DateTime::<Utc>::from(SystemTime::now())
                     .with_timezone(&&self.tz)
                     .time();

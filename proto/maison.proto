@@ -104,4 +104,5 @@ service Maison {
   rpc CancelHeatingOverride(google.protobuf.Empty) returns (google.protobuf.Empty) {}
   rpc IncrementSetPoint(IncrementSetPointRequest) returns (google.protobuf.Empty) {}
   rpc SetUnderfloorHeating(SetLightsRequest) returns (google.protobuf.Empty) {}
+  rpc SetGardenSprinklers(SetLightsRequest) returns (google.protobuf.Empty) {}
 }
