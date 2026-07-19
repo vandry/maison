@@ -112,40 +112,60 @@
       </table>
     </div>
     <div class="part2">
-      <table border="1">
-        <thead><tr><th colspan="2">Kitchen</th></tr></thead>
-        <tbody>
-          <tr>
-            <td align="center" width="50%" valign="middle" class="kitchen_lights">
-              <span class="light_unknown">
-                <img src="light_unknown.svg" class="l_unknown" />
-                <img src="light_on.svg" class="l_on" />
-                <img src="light_off.svg" class="l_off" />
-                <img src="light_half.svg" class="l_some" />
-              </span>
-            </td>
-            <td align="center" width="50%" valign="middle" class="kitchen_details">
-              <input type="button" value="&middot;&middot;&middot;" />
-            </td>
-          </tr>
-        </tbody>
-      </table>
-      <table border="1">
-        <thead><tr><th colspan="2">Garden</th></tr></thead>
-        <tbody>
-          <tr>
-            <td align="center" width="50%" valign="middle" class="garden_lights">
-              <span class="light_unknown">
-                <img src="light_unknown.svg" class="l_unknown" />
-                <img src="light_on.svg" class="l_on" />
-                <img src="light_off.svg" class="l_off" />
-              </span>
-            </td>
-            <td align="center" width="50%" valign="middle" class="garden_lights_timer">
-            </td>
-          </tr>
-        </tbody>
-      </table>
+      <div class="indoors">
+        <div class="vbox">
+          <div>Kitchen</div>
+          <div class="kitchen_lights">
+            <span class="light_unknown">
+              <img src="light_unknown.svg" class="l_unknown" />
+              <img src="light_on.svg" class="l_on" />
+              <img src="light_off.svg" class="l_off" />
+              <img src="light_half.svg" class="l_some" />
+            </span>
+          </div>
+          <div class="kitchen_details">
+            <input type="button" value="&middot;&middot;&middot;" />
+          </div>
+        </div>
+      </div>
+      <div class="wall">
+        <img src="wall.svg" />
+        <img src="wall.svg" />
+        <img src="wall.svg" />
+        <img src="wall.svg" />
+        <img src="wall.svg" />
+        <img src="wall.svg" />
+        <img src="wall.svg" />
+        <img src="wall.svg" />
+      </div>
+      <div class="garden">
+        <div class="sky">
+          <div class="vbox">
+              <div class="garden_lights">
+                <span class="light_unknown">
+                  <img src="light_unknown.svg" class="l_unknown" />
+                  <img src="light_on.svg" class="l_on" />
+                  <img src="light_off.svg" class="l_off" />
+                </span>
+              </div>
+              <div class="garden_lights_timer"></div>
+            </div>
+        </div>
+        <div class="garden_floor">
+          <div class="pit"></div>
+          <div class="fence">
+            <div class="fencepost"></div>
+            <div class="belowfence"></div>
+          </div>
+          <div class="patio">
+            <div></div>
+          </div>
+          <div class="bushes">
+            <img class="bushup" src="forest-svgrepo-com.svg" />
+            <div class="soil"></div>
+          </div>
+        </div>
+      </div>
     </div>
     <div class="kitchen_popup">
       <div class="closer"><img src="cross.svg" /></div>

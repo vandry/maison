@@ -39,6 +39,131 @@ body.dark td {
     display: flex;
 }
 
+.indoors {
+    width: 40%;
+    height: 100%;
+    display: flex;
+    align-items: end;
+}
+
+.vbox {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+}
+
+.wall {
+    width: 10%;
+    max-height: 100%;
+    overflow: hidden;
+}
+
+.vbox > div {
+    border: 0.1em solid;
+    padding: 0.3em;
+    display: flex;
+    justify-content: center;
+}
+
+.kitchen_details {
+    height: 4em;
+}
+
+.kitchen_lights > span {
+    width: 100%;
+}
+
+.garden_lights > span {
+    width: 100%;
+}
+
+.sky {
+    width: 100%;
+    align-self: start;
+    height: 50%;
+    display: flex;
+}
+
+.garden {
+    display: flex;
+    flex-direction: column;
+    width: 50%;
+    height: 100%;
+}
+
+.garden_floor {
+    display: flex;
+    align-self: end;
+    width: 100%;
+    height: 50%;
+    align-items: end;
+}
+
+.pit {
+    background: #7f7f7f;
+    height: 10%;
+    width: 20%;
+}
+
+.fence {
+    width: 5%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    height: 64%;
+}
+
+.fencepost {
+    background: black;
+    border-left: 1px solid white;
+    border-top: 1px solid white;
+    border-right: 1px solid white;
+    height: 38%;
+    width: 2px;
+}
+
+.belowfence {
+    background: #7f7f7f;
+    height: 62%;
+    width: 100%;
+}
+
+.patio {
+    width: 20%;
+    height: 64%;
+    width: 20%;
+    display: flex;
+    align-items: end;
+}
+
+.patio > div {
+    background: #7f7f7f;
+    height: 62%;
+    width: 100%;
+}
+
+.bushes {
+    width: 55%;
+    height: 64%;
+    display: flex;
+    align-items: end;
+    flex-direction: column;
+}
+
+.bushup {
+    height: 38%;
+}
+
+.soil {
+    width: 100%;
+    height: 62%;
+    background: #8b4513;
+}
+
+.garden_lights_timer {
+    font-size: 200%;
+}
+
 @media (orientation: landscape) {
     .part0 {
         height: 12%;
