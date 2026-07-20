@@ -9,6 +9,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use tonic::Status;
 
 use crate::mqtt::Mqtt;
+use crate::option_stream::OptionStream;
 use crate::pb::{
     Hysteresis2, HysteresisView, MaisonState, MonitorResponse, PersistentStateView, SetPoint,
     SetPoint2, SetPoint2View,
@@ -87,6 +88,16 @@ impl Api {
                 message: Some(crate::pb::monitor_response::Message::Maison(
                     snapshot.as_view().into(),
                 )),
+            })
+        })
+    }
+
+    fn outdoor_stats_stream(
+        &self,
+    ) -> impl Stream<Item = Result<MonitorResponse, Status>> + 'static {
+        crate::outdoor::StatsStream::new(&self.mqtt).map(|m| {
+            Ok(MonitorResponse {
+                message: Some(crate::pb::monitor_response::Message::Outdoor(m)),
             })
         })
     }
@@ -298,32 +309,31 @@ impl crate::pb::maison_server::Maison for Api {
         .filter_map(|maybe_subscription| maybe_subscription)
         .collect::<Vec<_>>()
         .merge();
-        let stream: Self::MonitorEverythingStream = match (
-            req.want_maison.unwrap_or_default(),
-            req.want_heat_schedule.unwrap_or_default(),
-        ) {
-            (false, false) => Box::pin((mqtt_stream, self.daylight_stream()).merge()),
-            (true, false) => {
-                Box::pin((mqtt_stream, self.maison_stream(), self.daylight_stream()).merge())
-            }
-            (false, true) => Box::pin(
+        let stream: Self::MonitorEverythingStream = Box::pin(
+            (
+                mqtt_stream,
                 (
-                    mqtt_stream,
-                    self.heat_schedule_stream(),
+                    OptionStream::new(
+                        req.want_maison
+                            .unwrap_or_default()
+                            .then(|| self.maison_stream()),
+                    ),
+                    OptionStream::new(
+                        req.want_heat_schedule
+                            .unwrap_or_default()
+                            .then(|| self.heat_schedule_stream()),
+                    ),
                     self.daylight_stream(),
+                    OptionStream::new(
+                        req.want_outdoor_stats
+                            .unwrap_or_default()
+                            .then(|| self.outdoor_stats_stream()),
+                    ),
                 )
                     .merge(),
-            ),
-            (true, true) => Box::pin(
-                (
-                    mqtt_stream,
-                    self.maison_stream(),
-                    self.heat_schedule_stream(),
-                    self.daylight_stream(),
-                )
-                    .merge(),
-            ),
-        };
+            )
+                .merge(),
+        );
         Ok(tonic::Response::new(stream))
     }
 

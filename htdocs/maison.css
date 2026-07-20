@@ -82,6 +82,12 @@ body.dark td {
     align-self: start;
     height: 50%;
     display: flex;
+    flex-direction: column;
+}
+
+.outdoor_temperature {
+    text-align: right;
+    font-size: 4cqw;
 }
 
 .garden {
@@ -158,6 +164,15 @@ body.dark td {
     width: 100%;
     height: 62%;
     background: #8b4513;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 3cqh;
+}
+
+.soil > * {
+    height: 1em;
+    color: white;
 }
 
 .garden_lights_timer {

@@ -374,6 +374,12 @@ class Maison {
         ) {
             req.setWantMaison(true);
         }
+        if (
+            (document.getElementsByClassName("outdoor_temperature").length > 0) ||
+            (document.getElementsByClassName("soil_moisture").length > 0)
+        ) {
+            req.setWantOutdoorStats(true);
+        }
         var floor_els = document.getElementsByClassName("floor");
         for (var i = 0; i < floor_els.length; i++) {
             req.setWantUnderfloorHeating(true);
@@ -425,6 +431,7 @@ class Maison {
                 top.accept_heat_schedule(null);
                 top.accept_underfloor_heating(null);
                 top.accept_sprinklers(null);
+                top.accept_outdoor(null);
                 return;
             }
             if (response.hasLiveTemperature()) {
@@ -463,6 +470,9 @@ class Maison {
                 } else {
                     document.body.className = "dark";
                 }
+            }
+            if (response.hasOutdoor()) {
+                top.accept_outdoor(response.getOutdoor());
             }
         });
         var closer_els = document.getElementsByClassName("closer");
@@ -758,6 +768,18 @@ class Maison {
                 }
             },
         );
+    }
+
+    accept_outdoor = (response) => {
+        var top = this;
+        var t_els = document.getElementsByClassName("outdoor_temperature");
+        for (var i = 0; i < t_els.length; i++) {
+            t_els[i].textContent = (response === null) ? "" : (response.hasTemperature() ? (response.getTemperature().toFixed(1) + "\xb0C") : "");
+        }
+        var m_els = document.getElementsByClassName("soil_moisture");
+        for (var i = 0; i < m_els.length; i++) {
+            m_els[i].textContent = (response === null) ? "" : ((response.hasMinSoilMoisture() && response.hasMaxSoilMoisture()) ? (response.getMinSoilMoisture().toFixed(0) + "\u2013" + response.getMaxSoilMoisture().toFixed(0) + "%") : "");
+        }
     }
 
     accept_sprinklers = (response) => {

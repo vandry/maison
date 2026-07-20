@@ -15,6 +15,8 @@ mod heat;
 mod hotwater;
 mod lights;
 mod mqtt;
+mod option_stream;
+mod outdoor;
 mod parse;
 mod schedule;
 mod state;

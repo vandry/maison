@@ -48,6 +48,12 @@ message HeatSchedule {
   repeated SetPoint heating = 2;
 }
 
+message OutdoorStats {
+  optional double temperature = 1;
+  optional double min_soil_moisture = 2;
+  optional double max_soil_moisture = 3;
+}
+
 message MonitorEverythingRequest {
   optional bool want_live_temperatures = 1;
   optional bool want_kitchen_ceiling = 2;
@@ -59,6 +65,7 @@ message MonitorEverythingRequest {
   optional bool want_heat_schedule = 8;
   optional bool want_underfloor_heating = 9;
   optional bool want_sprinklers = 10;
+  optional bool want_outdoor_stats = 11;
 }
 
 message MonitorResponse {
@@ -74,6 +81,7 @@ message MonitorResponse {
     SimpleSwitch daylight = 9;
     SimpleSwitch underfloor_heating = 10;
     SimpleSwitch sprinklers = 11;
+    OutdoorStats outdoor = 12;
   }
 }
 

@@ -20,6 +20,7 @@ pub enum Message {
     SimpleSwitch(crate::pb::SimpleSwitch),
     Contact(Option<bool>),
     Hue(HueJson),
+    Outdoor(OutdoorSensor),
 }
 
 fn check_last_seen(ls_epoch: u64, max_staleness: Duration) -> Result<(), ()> {
@@ -77,6 +78,15 @@ fn parse_climate(p: &Bytes, unit: &str) -> Result<Message, Problem> {
     }))
 }
 
+fn parse_garden_sensor(p: &Bytes, unit: &str) -> Result<Message, Problem> {
+    let json = std::str::from_utf8(p).map_err(|_| Problem::BadUtf8)?;
+    let m = serde_json::from_str::<OutdoorSensorJson>(json).map_err(|_| Problem::BadJson)?;
+    Ok(Message::Outdoor(OutdoorSensor {
+        unit: unit.to_string(),
+        value: m,
+    }))
+}
+
 #[derive(Deserialize, Debug)]
 struct SimpleSwitchJson {
     state: String,
@@ -110,6 +120,19 @@ pub struct HueJson {
     last_seen: u64,
 }
 
+#[derive(Clone, Deserialize, Debug)]
+pub struct OutdoorSensorJson {
+    pub soil_moisture: f64,
+    pub temperature: f64,
+    pub last_seen: u64,
+}
+
+#[derive(Clone, Debug)]
+pub struct OutdoorSensor {
+    pub unit: String,
+    pub value: OutdoorSensorJson,
+}
+
 fn parse_contact(p: &Bytes) -> Result<Message, Problem> {
     let json = std::str::from_utf8(p).map_err(|_| Problem::BadUtf8)?;
     let m = serde_json::from_str::<ContactJson>(json).map_err(|_| Problem::BadJson)?;
@@ -138,7 +161,10 @@ impl From<rumqttc::Publish> for Message {
             "zigbee/water_valve/sprinklers" => parse_simple_switch(&p.payload),
             t => match t.strip_prefix("zigbee/climate/") {
                 Some(unit) => parse_climate(&p.payload, unit),
-                None => Err(Problem::UnrecognisedTopic),
+                None => match t.strip_prefix("zigbee/garden/") {
+                    Some(_) => parse_garden_sensor(&p.payload, t),
+                    None => Err(Problem::UnrecognisedTopic),
+                },
             },
         };
         match m {
