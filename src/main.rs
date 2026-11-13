@@ -18,6 +18,7 @@ mod mqtt;
 mod option_stream;
 mod outdoor;
 mod parse;
+mod radiators;
 mod schedule;
 mod state;
 mod thermostat;
@@ -84,6 +85,7 @@ pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Arc<autosprinklers::AutoSprinklers>,
         Arc<boiler::Controller<hotwater::HotWater>>,
         Arc<boiler::Controller<heat::Heat>>,
+        Arc<radiators::SetpointMirror>,
         Arc<thermostat::ThermostatSet>,
         Arc<vase::VaseLamp>,
     )>::new()?
