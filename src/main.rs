@@ -86,6 +86,7 @@ pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
         Arc<boiler::Controller<hotwater::HotWater>>,
         Arc<boiler::Controller<heat::Heat>>,
         Arc<radiators::SetpointMirror>,
+        Arc<radiators::ExternalMirror>,
         Arc<thermostat::ThermostatSet>,
         Arc<vase::VaseLamp>,
     )>::new()?
