@@ -7,11 +7,11 @@ use humantime::parse_duration;
 use pin_project_lite::pin_project;
 use std::collections::HashMap;
 use std::pin::{Pin, pin};
-use std::str::FromStr;
 use std::sync::Arc;
 use std::task::{Context, Poll, ready};
 use std::time::{Duration, Instant};
 
+use crate::RadiatorMapEntry;
 use crate::mqtt::Mqtt;
 use crate::schedule::Schedule;
 use crate::state::State;
@@ -37,40 +37,6 @@ fn calc(state: Option<&PersistentState>, schedule: Option<&HeatSchedule>) -> Has
         }
     }
     known
-}
-
-#[derive(Clone, Debug)]
-struct RadiatorMapEntry {
-    radiator_name: String,
-    zone: String,
-}
-
-#[derive(Debug)]
-struct RadiatorMapEntryParseError;
-
-impl std::fmt::Display for RadiatorMapEntryParseError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
-        write!(
-            f,
-            "argument to --radiator_{{sensor,setpoint}}=RadiatorName=zone_name"
-        )
-    }
-}
-
-impl std::error::Error for RadiatorMapEntryParseError {}
-
-impl FromStr for RadiatorMapEntry {
-    type Err = RadiatorMapEntryParseError;
-
-    fn from_str(s: &str) -> Result<Self, RadiatorMapEntryParseError> {
-        match s.find('=') {
-            None => Err(RadiatorMapEntryParseError),
-            Some(i) => Ok(RadiatorMapEntry {
-                radiator_name: s[..i].into(),
-                zone: s[i + 1..].into(),
-            }),
-        }
-    }
 }
 
 #[derive(clap::Args)]
@@ -361,6 +327,9 @@ impl Resource for ExternalMirror {
                 .entry(zone)
                 .or_insert_with(Vec::new)
                 .push(radiator_name);
+        }
+        if config.is_empty() {
+            return Ok(Arc::new(Self));
         }
         runtime.set_task(async move {
             let mut backoff = crate::new_backoff();

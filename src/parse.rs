@@ -21,6 +21,7 @@ pub enum Message {
     Contact(Option<bool>),
     Hue(HueJson),
     Outdoor(OutdoorSensor),
+    Radiator(Option<bool>),
 }
 
 fn check_last_seen(ls_epoch: u64, max_staleness: Duration) -> Result<(), ()> {
@@ -75,6 +76,25 @@ fn parse_climate(p: &Bytes, unit: &str) -> Result<Message, Problem> {
         battery: Some(m.battery),
         temperature: Some(m.temperature),
         humidity: Some(m.humidity),
+    }))
+}
+
+#[derive(Deserialize, Debug)]
+struct RadiatorJson {
+    running_state: String,
+    last_seen: u64,
+}
+
+fn parse_radiator(p: &Bytes) -> Result<Message, Problem> {
+    let json = std::str::from_utf8(p).map_err(|_| Problem::BadUtf8)?;
+    let m = serde_json::from_str::<RadiatorJson>(json).map_err(|_| Problem::BadJson)?;
+    check_last_seen(m.last_seen, Duration::from_secs(4500)).map_err(|_| Problem::Stale)?;
+    Ok(Message::Radiator(if m.running_state == "heat" {
+        Some(true)
+    } else if m.running_state == "idle" {
+        Some(false)
+    } else {
+        None
     }))
 }
 
@@ -163,7 +183,10 @@ impl From<rumqttc::Publish> for Message {
                 Some(unit) => parse_climate(&p.payload, unit),
                 None => match t.strip_prefix("zigbee/garden/") {
                     Some(_) => parse_garden_sensor(&p.payload, t),
-                    None => Err(Problem::UnrecognisedTopic),
+                    None => match t.strip_prefix("zigbee/radiator/") {
+                        Some(_) => parse_radiator(&p.payload),
+                        None => Err(Problem::UnrecognisedTopic),
+                    },
                 },
             },
         };

@@ -9,6 +9,7 @@ use std::sync::Arc;
 use std::task::{Context, Poll, ready};
 use std::time::{Duration, Instant, SystemTime};
 
+use crate::RadiatorMapEntry;
 use crate::mqtt::{Mqtt, SubscriptionStream};
 use crate::pb::{
     Climate, HeatSchedule, HysteresisMut, PersistentState, SetPoint, SetPoint2, SetPoint2View,
@@ -24,6 +25,10 @@ pub struct ThermostatSetArgs {
     hysteresis_off_hold_time: Duration,
     #[arg(long, help = "Amount of time to remember live temperatures", default_value = "4500s", value_parser = parse_duration)]
     live_temp_memory: Duration,
+    #[arg(long, help = "Amount of time to remember radiator status", default_value = "4500s", value_parser = parse_duration)]
+    radiator_status_memory: Duration,
+    #[arg(long, help = "RadiatorName=zone_to_gate")]
+    radiator_gate: Vec<RadiatorMapEntry>,
 }
 
 struct ClimateMonitor {
@@ -47,9 +52,33 @@ impl Stream for ClimateMonitor {
     }
 }
 
+struct RadiatorMonitor {
+    inner: Pin<Box<SubscriptionStream>>,
+    for_zone: String,
+}
+
+impl RadiatorMonitor {
+    fn new(mqtt: Arc<Mqtt>, name: &str, for_zone: String) -> Self {
+        let topic = format!("zigbee/radiator/{}", name);
+        Self {
+            inner: Box::pin(mqtt.subscribe(topic).into_stream()),
+            for_zone,
+        }
+    }
+}
+
+impl Stream for RadiatorMonitor {
+    type Item = crate::parse::Message;
+
+    fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
+        self.inner.poll_next_unpin(cx)
+    }
+}
+
 pin_project! {
     struct ThermostatSetFuture {
         config: ThermostatSetArgs,
+        gates: HashMap<String, Vec<String>>,
         current_schedule: Arc<HeatSchedule>,
         current_state: Arc<PersistentState>,
         mqtt: Arc<Mqtt>,
@@ -57,7 +86,9 @@ pin_project! {
         #[pin] schedule_stream: tokio_stream::wrappers::WatchStream<Arc<HeatSchedule>>,
         #[pin] state_stream: tokio_stream::wrappers::WatchStream<Arc<PersistentState>>,
         monitors: HashMap<String, ClimateMonitor>,
+        radiator_monitors: HashMap<String, RadiatorMonitor>,
         live_temp: HashMap<String, (f64, Instant)>,
+        radiator_status: HashMap<String, (bool, Instant)>,
         #[pin] sleep: Option<tokio::time::Sleep>,
     }
 }
@@ -102,7 +133,14 @@ impl Thermostat<'_> {
         }
     }
 
-    fn decide(&self, live: Option<f64>, now: SystemTime, is_heating_overridden: bool) -> Decision {
+    fn decide(
+        &self,
+        live: Option<f64>,
+        now: SystemTime,
+        is_heating_overridden: bool,
+        gates: Option<&Vec<String>>,
+        radiator_status: &HashMap<String, (bool, Instant)>,
+    ) -> Decision {
         let maybe_hysteresis = self.state.and_then(|s| s.hysteresis_opt().into_option());
         let default_decision = match maybe_hysteresis {
             Some(_) => Decision::Disable,
@@ -125,6 +163,20 @@ impl Thermostat<'_> {
             }
         }
         if live_temp < setpoint {
+            if let Some(g) = gates {
+                if g.iter().any(|radiator_name| {
+                    let s = radiator_status
+                        .get(radiator_name)
+                        .map(|(status, _)| *status)
+                        .unwrap_or_default();
+                    if !s {
+                        tracing::warn!("Zone wants to heat but radiator {radiator_name} is off");
+                    }
+                    !s
+                }) {
+                    return Decision::Off(unique);
+                }
+            }
             Decision::On(unique)
         } else {
             Decision::Off(unique)
@@ -191,6 +243,36 @@ impl ThermostatSetFuture {
             return false;
         }
 
+        this.radiator_monitors
+            .retain(|_, mon| match want.get(mon.for_zone.as_str()) {
+                None => false,
+                Some(t) => t.setpoint(heating_overridden_remaining.is_some()).is_some(),
+            });
+        let any_radiators_added = want.iter().fold(false, |any_added, (zone, t)| {
+            if !this.radiator_monitors.contains_key(*zone)
+                && t.setpoint(heating_overridden_remaining.is_some()).is_some()
+            {
+                let mut added = any_added;
+                if let Some(gate_radiators) = this.gates.get(*zone) {
+                    for r in gate_radiators {
+                        if !this.radiator_monitors.contains_key(r) {
+                            this.radiator_monitors.insert(
+                                r.to_string(),
+                                RadiatorMonitor::new(Arc::clone(&this.mqtt), r, zone.to_string()),
+                            );
+                            added = true;
+                        }
+                    }
+                }
+                added
+            } else {
+                any_added
+            }
+        });
+        if any_radiators_added {
+            return false;
+        }
+
         let mut decisions = want
             .into_iter()
             .map(|(zone, thermostat)| {
@@ -201,7 +283,13 @@ impl ThermostatSetFuture {
                     .map(|(t, _)| *t);
                 (
                     zone,
-                    thermostat.decide(live, now, heating_overridden_remaining.is_some()),
+                    thermostat.decide(
+                        live,
+                        now,
+                        heating_overridden_remaining.is_some(),
+                        this.gates.get(zone),
+                        &this.radiator_status,
+                    ),
                 )
             })
             .collect::<HashMap<_, _>>();
@@ -378,6 +466,29 @@ impl Future for ThermostatSetFuture {
                 });
             this.live_temp
                 .retain(|_, (_, when)| now_i.duration_since(*when) < this.config.live_temp_memory);
+            this.radiator_monitors.retain(|radiator_name, monitor| {
+                match monitor.poll_next_unpin(cx) {
+                    Poll::Ready(None) => false,
+                    Poll::Pending => true,
+                    Poll::Ready(Some(m)) => {
+                        match m {
+                            crate::parse::Message::Radiator(Some(onoff)) => {
+                                this.radiator_status
+                                    .insert(radiator_name.to_string(), (onoff, now_i));
+                            }
+                            crate::parse::Message::Radiator(None) => {
+                                this.radiator_status.remove(radiator_name);
+                            }
+                            _ => (),
+                        };
+                        something_happened = true;
+                        true
+                    }
+                }
+            });
+            this.radiator_status.retain(|_, (_, when)| {
+                now_i.duration_since(*when) < this.config.radiator_status_memory
+            });
 
             if self.as_mut().calculate() && !something_happened {
                 let mut this = self.as_mut().project();
@@ -401,23 +512,37 @@ pub struct ThermostatSet;
 impl Resource for ThermostatSet {
     fn new(
         (mqtt, state, schedule): (Arc<Mqtt>, Arc<State>, Arc<crate::schedule::Schedule>),
-        config: ThermostatSetArgs,
+        mut config: ThermostatSetArgs,
         runtime: &mut AssemblyRuntime<'_>,
     ) -> Result<Arc<Self>, std::convert::Infallible> {
         let mut schedule_sub = schedule.subscribe();
         let current_schedule = Arc::clone(&schedule_sub.borrow_and_update());
         let mut state_sub = state.subscribe();
         let current_state = Arc::clone(&state_sub.borrow_and_update());
+        let mut gates = HashMap::new();
+        for RadiatorMapEntry {
+            radiator_name,
+            zone,
+        } in std::mem::take(&mut config.radiator_gate)
+        {
+            gates
+                .entry(zone)
+                .or_insert_with(Vec::new)
+                .push(radiator_name);
+        }
         runtime.set_task(ThermostatSetFuture {
             mqtt,
             state,
             config,
+            gates,
             current_schedule,
             current_state,
             schedule_stream: tokio_stream::wrappers::WatchStream::from_changes(schedule_sub),
             state_stream: tokio_stream::wrappers::WatchStream::from_changes(state_sub),
             monitors: HashMap::new(),
+            radiator_monitors: HashMap::new(),
             live_temp: HashMap::new(),
+            radiator_status: HashMap::new(),
             sleep: None,
         });
         Ok(Arc::new(Self))

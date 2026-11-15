@@ -68,6 +68,40 @@ fn proto_ts_to_delay(
     None
 }
 
+#[derive(Clone, Debug)]
+struct RadiatorMapEntry {
+    radiator_name: String,
+    zone: String,
+}
+
+#[derive(Debug)]
+struct RadiatorMapEntryParseError;
+
+impl std::fmt::Display for RadiatorMapEntryParseError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> Result<(), std::fmt::Error> {
+        write!(
+            f,
+            "argument to --radiator_{{sensor,setpoint}}=RadiatorName=zone_name"
+        )
+    }
+}
+
+impl std::error::Error for RadiatorMapEntryParseError {}
+
+impl std::str::FromStr for RadiatorMapEntry {
+    type Err = RadiatorMapEntryParseError;
+
+    fn from_str(s: &str) -> Result<Self, RadiatorMapEntryParseError> {
+        match s.find('=') {
+            None => Err(RadiatorMapEntryParseError),
+            Some(i) => Ok(RadiatorMapEntry {
+                radiator_name: s[..i].into(),
+                zone: s[i + 1..].into(),
+            }),
+        }
+    }
+}
+
 #[tokio::main]
 pub async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let _ = pb::__unstable::PERSISTENT_DESCRIPTOR_INFO; // Silence warning
