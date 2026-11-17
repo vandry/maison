@@ -339,7 +339,7 @@ impl Resource for ExternalMirror {
                         inner: config.iter(),
                         mqtt: &*mqtt,
                     })
-                    .flatten()
+                    .flatten_unordered(None)
                 );
                 let mut writings = FuturesUnordered::new();
                 loop {
