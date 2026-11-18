@@ -226,7 +226,7 @@ impl ThermostatSetFuture {
                 None => false,
                 Some(t) => t.setpoint(heating_overridden_remaining.is_some()).is_some(),
             });
-        let any_added = want.iter().fold(false, |any_added, (zone, t)| {
+        let any_sensors_added = want.iter().fold(false, |any_added, (zone, t)| {
             if !this.monitors.contains_key(*zone)
                 && t.setpoint(heating_overridden_remaining.is_some()).is_some()
             {
@@ -239,16 +239,13 @@ impl ThermostatSetFuture {
                 any_added
             }
         });
-        if any_added {
-            return false;
-        }
 
         this.radiator_monitors
             .retain(|_, mon| match want.get(mon.for_zone.as_str()) {
                 None => false,
                 Some(t) => t.setpoint(heating_overridden_remaining.is_some()).is_some(),
             });
-        let any_radiators_added = want.iter().fold(false, |any_added, (zone, t)| {
+        let any_added = want.iter().fold(any_sensors_added, |any_added, (zone, t)| {
             if !this.radiator_monitors.contains_key(*zone)
                 && t.setpoint(heating_overridden_remaining.is_some()).is_some()
             {
@@ -269,7 +266,8 @@ impl ThermostatSetFuture {
                 any_added
             }
         });
-        if any_radiators_added {
+
+        if any_added {
             return false;
         }
 
