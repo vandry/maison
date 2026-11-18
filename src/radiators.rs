@@ -18,12 +18,18 @@ use crate::state::State;
 
 use crate::pb::{HeatSchedule, PersistentState};
 
-fn calc(state: Option<&PersistentState>, schedule: Option<&HeatSchedule>) -> HashMap<String, f64> {
-    let mut known = HashMap::new();
+fn calc(
+    state: Option<&PersistentState>,
+    schedule: Option<&HeatSchedule>,
+    config: &HashMap<String, Vec<String>>,
+) -> HashMap<String, Option<f64>> {
+    let mut known: HashMap<_, _> = config.keys().map(|z| (z.to_string(), None)).collect();
     if let Some(s) = schedule {
         for se in &s.heating {
             if let (Some(zone), Some(new)) = (se.zone.as_ref(), se.setpoint) {
-                known.insert(zone.to_string(), new);
+                if let Some(v) = known.get_mut(zone) {
+                    *v = Some(new);
+                }
             }
         }
     }
@@ -32,7 +38,11 @@ fn calc(state: Option<&PersistentState>, schedule: Option<&HeatSchedule>) -> Has
             if let (Some(zone), Some(new)) =
                 (ho.zone_opt().into_option(), ho.setpoint_opt().into_option())
             {
-                known.insert(zone.to_string(), new);
+                if let Ok(z) = zone.to_str() {
+                    if let Some(v) = known.get_mut(z) {
+                        *v = Some(new);
+                    }
+                }
             }
         }
     }
@@ -50,7 +60,7 @@ pub struct SetpointMirrorArgs {
 pub struct SetpointMirror;
 
 struct Delivery {
-    value: f64,
+    value: Option<f64>,
     deliver_time: Option<Instant>,
 }
 
@@ -61,7 +71,7 @@ impl Delivery {
 }
 
 pin_project! {
-    struct SetpointMirrorStream<ST, SC> {
+    struct SetpointMirrorStream<'a, ST, SC> {
         #[pin] state_fut: ST,
         #[pin] schedule_fut: SC,
         #[pin] timer: Option<tokio::time::Sleep>,
@@ -69,15 +79,22 @@ pin_project! {
         persistent_state: Option<Arc<PersistentState>>,
         schedule: Option<Arc<HeatSchedule>>,
         delay: Duration,
+        config: &'a HashMap<String, Vec<String>>,
     }
 }
 
-impl<ST, SC> SetpointMirrorStream<ST, SC> {
-    fn new(state_fut: ST, schedule_fut: SC, delay: Duration) -> Self {
+impl<'a, ST, SC> SetpointMirrorStream<'a, ST, SC> {
+    fn new(
+        state_fut: ST,
+        schedule_fut: SC,
+        delay: Duration,
+        config: &'a HashMap<String, Vec<String>>,
+    ) -> Self {
         Self {
             state_fut,
             schedule_fut,
             delay,
+            config,
             timer: None,
             deliveries: HashMap::new(),
             persistent_state: None,
@@ -86,12 +103,12 @@ impl<ST, SC> SetpointMirrorStream<ST, SC> {
     }
 }
 
-impl<ST, SC> Stream for SetpointMirrorStream<ST, SC>
+impl<ST, SC> Stream for SetpointMirrorStream<'_, ST, SC>
 where
     ST: Stream<Item = Arc<PersistentState>>,
     SC: Stream<Item = Arc<HeatSchedule>>,
 {
-    type Item = (String, f64);
+    type Item = (String, Option<f64>);
 
     fn poll_next(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
         let mut this = self.project();
@@ -122,7 +139,11 @@ where
             }
             let now = Instant::now();
             let mut deliveries_changed = false;
-            for (zone, v) in calc(this.persistent_state.as_deref(), this.schedule.as_deref()) {
+            for (zone, v) in calc(
+                this.persistent_state.as_deref(),
+                this.schedule.as_deref(),
+                this.config,
+            ) {
                 this.deliveries
                     .entry(zone)
                     .and_modify(|d| {
@@ -199,13 +220,27 @@ impl Resource for SetpointMirror {
                     tokio_stream::wrappers::WatchStream::new(state.subscribe()),
                     tokio_stream::wrappers::WatchStream::new(schedule.subscribe()),
                     a.radiator_setpoint_delay,
+                    &config,
                 ));
-                while let Some((zone, setpoint)) = s.next().await {
+                while let Some((zone, maybe_setpoint)) = s.next().await {
                     if let Some(radiators) = config.get(&zone) {
                         for radiator_name in radiators {
-                            tracing::info!("Mirror setpoint {setpoint} to radiator {radiator_name} from zone {zone}");
-                            if let Err(e) = mqtt.publish(format!("zigbee/radiator/{radiator_name}/set/occupied_heating_setpoint"), format!("{setpoint}")).await {
-                                tracing::error!("MQTT set: {e}");
+                            match maybe_setpoint {
+                                Some(setpoint) => {
+                                    tracing::info!("Mirror setpoint {setpoint} to radiator {radiator_name} from zone {zone}");
+                                    if let Err(e) = mqtt.publish(format!("zigbee/radiator/{radiator_name}/set/occupied_heating_setpoint"), format!("{setpoint}")).await {
+                                        tracing::error!("MQTT set: {e}");
+                                    }
+                                    if let Err(e) = mqtt.publish(format!("zigbee/radiator/{radiator_name}/set/system_mode"), "heat").await {
+                                        tracing::error!("MQTT set: {e}");
+                                    }
+                                }
+                                None => {
+                                    tracing::info!("Mirror off state to radiator {radiator_name} from zone {zone}");
+                                    if let Err(e) = mqtt.publish(format!("zigbee/radiator/{radiator_name}/set/system_mode"), "off").await {
+                                        tracing::error!("MQTT set: {e}");
+                                    }
+                                }
                             }
                         }
                     }
