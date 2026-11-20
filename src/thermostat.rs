@@ -2,6 +2,7 @@ use comprehensive::v1::{AssemblyRuntime, Resource, resource};
 use futures::{Stream, StreamExt};
 use humantime::parse_duration;
 use pin_project_lite::pin_project;
+use prometheus::{GaugeVec, register_gauge_vec};
 use protobuf::{Optional, proto};
 use std::collections::HashMap;
 use std::pin::Pin;
@@ -90,6 +91,8 @@ pin_project! {
         live_temp: HashMap<String, (f64, Instant)>,
         radiator_status: HashMap<String, (bool, Instant)>,
         #[pin] sleep: Option<tokio::time::Sleep>,
+        setpoint_metric: GaugeVec,
+        setpoint_published: HashMap<String, f64>,
     }
 }
 
@@ -271,6 +274,18 @@ impl ThermostatSetFuture {
             return false;
         }
 
+        this.setpoint_published.retain(|zone, _| {
+            let has = want
+                .get(&**zone)
+                .and_then(|thermostat| thermostat.setpoint(heating_overridden_remaining.is_some()))
+                .map(|(_, _)| true)
+                .unwrap_or_default();
+            if !has {
+                let labels = &[zone];
+                this.setpoint_metric.remove_label_values(labels).unwrap();
+            }
+            has
+        });
         let mut decisions = want
             .into_iter()
             .map(|(zone, thermostat)| {
@@ -279,12 +294,33 @@ impl ThermostatSetFuture {
                     .get(zone)
                     .filter(|(_, when)| now_i.duration_since(*when) < this.config.live_temp_memory)
                     .map(|(t, _)| *t);
+                let is_heating_overridden = heating_overridden_remaining.is_some();
+                if let Some((new, _)) = thermostat.setpoint(is_heating_overridden) {
+                    let please_publish = match this.setpoint_published.get_mut(&*zone) {
+                        Some(old) => {
+                            if *old != new {
+                                *old = new;
+                                true
+                            } else {
+                                false
+                            }
+                        }
+                        None => {
+                            this.setpoint_published.insert(zone.to_string(), new);
+                            true
+                        }
+                    };
+                    if please_publish {
+                        let labels = &[zone];
+                        this.setpoint_metric.with_label_values(labels).set(new);
+                    }
+                }
                 (
                     zone,
                     thermostat.decide(
                         live,
                         now,
-                        heating_overridden_remaining.is_some(),
+                        is_heating_overridden,
                         this.gates.get(zone),
                         &this.radiator_status,
                     ),
@@ -512,7 +548,7 @@ impl Resource for ThermostatSet {
         (mqtt, state, schedule): (Arc<Mqtt>, Arc<State>, Arc<crate::schedule::Schedule>),
         mut config: ThermostatSetArgs,
         runtime: &mut AssemblyRuntime<'_>,
-    ) -> Result<Arc<Self>, std::convert::Infallible> {
+    ) -> Result<Arc<Self>, prometheus::Error> {
         let mut schedule_sub = schedule.subscribe();
         let current_schedule = Arc::clone(&schedule_sub.borrow_and_update());
         let mut state_sub = state.subscribe();
@@ -528,6 +564,7 @@ impl Resource for ThermostatSet {
                 .or_insert_with(Vec::new)
                 .push(radiator_name);
         }
+        let setpoint_metric = register_gauge_vec!("setpoint", "Heating setpoint", &["zone"])?;
         runtime.set_task(ThermostatSetFuture {
             mqtt,
             state,
@@ -542,6 +579,8 @@ impl Resource for ThermostatSet {
             live_temp: HashMap::new(),
             radiator_status: HashMap::new(),
             sleep: None,
+            setpoint_metric,
+            setpoint_published: HashMap::new(),
         });
         Ok(Arc::new(Self))
     }
