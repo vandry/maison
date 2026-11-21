@@ -177,7 +177,7 @@ impl Thermostat<'_> {
                     }
                     !s
                 }) {
-                    return Decision::Off(unique);
+                    return Decision::Skip;
                 }
             }
             Decision::On(unique)
